@@ -8,16 +8,14 @@
 
 #define LEMONBAR "~/Downloads/bar/lemonbar"
 
-struct lemonbar initChannel()
+int initChannel(struct lemonbar *lm)
 {
-    struct lemonbar lm = {0};
-
-    lm.fp = popen(LEMONBAR, "w");
-    if(lm.fp == NULL) {
-	exit(EXIT_FAILURE);
+    lm->fp = popen(LEMONBAR, "w");
+    if(lm->fp == NULL) {
+	return 0;
     }
 
-    return lm;
+    return 0;
 }
 
 int formatLemonBar(struct lemonbar *lm, char *str)

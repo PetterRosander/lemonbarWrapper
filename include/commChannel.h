@@ -9,7 +9,7 @@ struct lemonbar
     char *lemonFormat;
 };
 
-struct lemonbar initChannel();
+int initChannel(struct lemonbar *lm);
 int formatLemonBar(struct lemonbar *lm, char *str);
 int sendlemonBar(struct lemonbar lm);
 

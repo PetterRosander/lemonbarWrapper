@@ -7,23 +7,26 @@ SDIR = src
 CFLAGS = \
 	 -pedantic \
 	 -Werror \
-	 -I$(IDIR)/
+	 -I$(IDIR)/ \
 
 _OBJ = \
       commChannel.o \
+      i3query.o \
       main.o
 
-_DEPS = commChannel.h
+DEPS = \
+       $(IDIR)/commChannel.h \
+       $(IDIR)/i3query.h \
 
-
-DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 
 all: obj lemonWrapper
 
-$(ODIR)/%.o: $(SDIR)/%.c $(DEPS) 
-	$(CC) $(CFLAGS) -c -o $@ $< 
+$(ODIR)/%.o: $(SDIR)/%.c $(DEPS)
+	$(CC) -MMD -c -o $@ $< $(CFLAGS) 
+
+-include $(ODIR)/.*d
 
 obj:
 	mkdir -p $@
