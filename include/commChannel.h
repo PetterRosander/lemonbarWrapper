@@ -2,6 +2,8 @@
 #define _COMMCHANNEL_H_
 #include <stdio.h>
 
+#include "i3query.h"
+
 struct lemonbar
 {
     FILE *fp;
@@ -10,7 +12,7 @@ struct lemonbar
 };
 
 int initChannel(struct lemonbar *lm);
-int formatLemonBar(struct lemonbar *lm, char *str);
+int formatLemonBar(struct lemonbar *lm, struct workspace ws);
 int sendlemonBar(struct lemonbar lm);
 
 

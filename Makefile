@@ -3,11 +3,13 @@ CC ?= gcc
 IDIR = include
 ODIR = obj
 SDIR = src
+JSMN = 3rd-party/jsmn/
 
 CFLAGS = \
 	 -pedantic \
 	 -Werror \
 	 -I$(IDIR)/ \
+	 -I$(JSMN)
 
 _OBJ = \
       commChannel.o \

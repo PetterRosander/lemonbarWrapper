@@ -6,6 +6,7 @@
 #define ERROR(error) \
     fprintf(stderr, "%s\n", error);
 
+static void runLoop(struct workspace *ws, struct lemonbar *lm);
 
 int main(int argc, char *argv[])
 {
@@ -14,16 +15,9 @@ int main(int argc, char *argv[])
 	perror("setting up bar");
     }
 
-    if(formatLemonBar(&lm, "hello hello") != 0){
-	perror("setting up bar");
-    }
-
-    if(sendlemonBar(lm)!= 0){
-	perror("send error ");
-    }
-    //pause();
-    struct workspace ws;
-    if(subscribeWorkSpace(&ws, "/run/user/1000/i3/ipc-socket.1277") != 0){
+    
+    struct workspace ws = {0};
+    if(subscribeWorkSpace(&ws, "/run/user/1000/i3/ipc-socket.1266") != 0){
 	perror("subscribe error");
     }
     
@@ -31,8 +25,52 @@ int main(int argc, char *argv[])
 	perror("subscribe error");
     }
 
-    if(eventi3(&ws) != 0){
-	perror("subscribe error");
+    jsonParseMessageCommand(&ws);
+    
+    if(formatLemonBar(&lm, ws) != 0){
+	perror("setting up bar");
     }
+
+    if(sendlemonBar(lm)!= 0){
+	perror("send error ");
+    }
+
+    while(true){
+	runLoop(&ws, &lm);
+    }
+
     return 0;
 }
+
+#include <poll.h>
+static void runLoop(struct workspace *ws, struct lemonbar *lm)
+{
+    struct pollfd fds[10];
+    nfds_t nfds = 1;
+    fds[0].fd = ws->fd;
+    fds[0].events = 0 | POLLIN;
+
+    int read = poll(fds, nfds, 10);
+
+
+    if(read > 0){
+	if((fds[0].revents & POLLIN) == POLLIN){
+	    if(eventi3(ws) != 0){
+		perror("subscribe error");
+	    }
+
+	    jsonParseMessageEvent(ws);
+	    if(formatLemonBar(lm, *ws) != 0){
+		perror("setting up bar");
+	    }
+
+	    if(sendlemonBar(*lm)!= 0){
+		perror("send error ");
+	    }
+
+
+	}
+    }
+
+}
+
