@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "i3query.h"
+#include "../include/i3query.h"
 
 #define NBR_JSMN_TOKENS 1024
 #define JSMN_STATIC
@@ -23,6 +23,8 @@ enum I3_TYPE {
 };
 
 static void formatMessage(enum I3_TYPE type, unsigned char *packet);
+static void parseChangefocus(jsmn_parser parser, jsmntok_t *token, int numberTokens, struct workspace *ws);
+static void parseChangeinit(jsmn_parser parser, jsmntok_t *token, int numberTokens, struct workspace *ws);
 
 
 int subscribeWorkSpace(struct workspace *ws, char *i3path)
@@ -105,6 +107,8 @@ int startWorkSpace(struct workspace *ws)
 
     return 0;
 }
+
+
 static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
     if (tok->type == JSMN_STRING && (int)strlen(s) == tok->end - tok->start &&
 	    strncmp(json + tok->start, s, tok->end - tok->start) == 0) {
@@ -121,33 +125,62 @@ int jsonParseMessageEvent(struct workspace *ws)
 
     jsmn_init(&parser);
 
-    int ret = jsmn_parse(&parser, ws->json_i3, ws->lenjson_i3, token, NBR_JSMN_TOKENS);
+    int numberTokens = jsmn_parse(&parser, ws->json_i3, ws->lenjson_i3, token, NBR_JSMN_TOKENS);
 
-    if(ret < 1){
+    if(numberTokens < 1){
 	return -1;
     }
     
-    if(jsoneq(ws->json_i3, &token [1], "change") != 0 ||
-       jsoneq(ws->json_i3, &token [2], "focus") != 0){
-	return -1;
+    if(jsoneq(ws->json_i3, &token [1], "change") == 0 &&
+       jsoneq(ws->json_i3, &token [2], "focus") == 0){
+	parseChangefocus(parser, token, numberTokens, ws);
+	return 0;
     }
 
+    if(jsoneq(ws->json_i3, &token [1], "change") == 0 &&
+       jsoneq(ws->json_i3, &token [2], "init") == 0){
+	parseChangeinit(parser, token, numberTokens, ws);
+	return 0;
+    }
+
+    return -1;
+}
+
+static void parseChangefocus(jsmn_parser parser, jsmntok_t *token, int numberTokens, struct workspace *ws)
+{
     bool current = true;
-    int  num = 0;
-    for(int i = 0; i < ret; i++){
+    for(int i = 0; i < numberTokens; i++){
 	if(token[i].type == JSMN_OBJECT && jsoneq(ws->json_i3, &token[i - 1], "old") == 0){
 	    current = false;
 	}
 	if(jsoneq(ws->json_i3, &token[i], "num") == 0){
 	    char value[10] = {0};
 	    strncpy(value, ws->json_i3 + token[i + 1].start, token[i + 1].end - token[i + 1].start);
-	    num = strtol(value, NULL, 10) - 1;
+	    int num = strtol(value, NULL, 10) - 1;
 	    ws->json[num].focused = current ? true: false;
 	    i++;
 	} 
     }
+}
 
-    return 0;
+static void parseChangeinit(jsmn_parser parser, jsmntok_t *token, int numberTokens, struct workspace *ws)
+{
+    int num = 0;
+    char name[128] = {0};
+    for(int i = 0; i < numberTokens; i++){
+	if(jsoneq(ws->json_i3, &token[i], "num") == 0){
+	    char value[10] = {0};
+	    strncpy(value, ws->json_i3 + token[i + 1].start, token[i + 1].end - token[i + 1].start);
+	    num = strtol(value, NULL, 10) - 1;
+	    ws->json[num].focused = true;
+	    i++;
+	} else if(jsoneq(ws->json_i3, &token[i], "name") == 0){
+	    strncpy(name, ws->json_i3 + token[i + 1].start, token[i + 1].end - token[i + 1].start);
+	    i++;
+	} 
+    }
+    strcpy(ws->json[num].name, name);
+    ws->numberws = num;
 }
 
 int jsonParseMessageCommand(struct workspace *ws)

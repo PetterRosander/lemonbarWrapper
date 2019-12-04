@@ -59,6 +59,9 @@ static void formatWorkspace(struct workspace ws, char *out)
     int currLen = 0;
     currLen += sprintf(out, "%%{c}");
     for(int i = 0; i < ws.numberws; i++){
+	if(ws.json[i].num == 0){
+	    continue;
+	}
 	if(ws.json[i].focused == true){
 	    currLen += sprintf(
 		    &out[0] + currLen, 

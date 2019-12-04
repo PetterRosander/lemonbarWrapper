@@ -1,15 +1,35 @@
-#include <unistd.h> // pause
+#define _XOPEN_SOURCE
+#include <unistd.h>
+#include <string.h>
 
 #include "commChannel.h"
 #include "i3query.h"
 
 #define ERROR(error) \
-    fprintf(stderr, "%s\n", error);
+    fprintf(stderr, "%s\n", error); \
+    exit(EXIT_FAILURE);
 
 static void runLoop(struct workspace *ws, struct lemonbar *lm);
 
 int main(int argc, char *argv[])
 {
+
+    int opt;
+    char i3path[128] = {0};
+
+    // TODO: Add long opts (see manual getopt)
+    while((opt = getopt(argc, argv, "p:")) != -1) {
+	switch(opt){
+	case 'p':
+	    strcpy(i3path, optarg);
+	    printf("%s\n", i3path);
+	    break;
+	default:
+	    printf("Unknown option"); 
+	    break;
+	}
+    }
+
     struct lemonbar lm = {0};
     if(initChannel(&lm) != 0){
 	perror("setting up bar");
@@ -17,7 +37,7 @@ int main(int argc, char *argv[])
 
     
     struct workspace ws = {0};
-    if(subscribeWorkSpace(&ws, "/run/user/1000/i3/ipc-socket.1266") != 0){
+    if(subscribeWorkSpace(&ws, i3path) != 0){
 	perror("subscribe error");
     }
     
