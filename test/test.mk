@@ -2,7 +2,9 @@ ODIR_TEST=$(ODIR)
 TDIR=test
 CFLAGS_TEST += \
 	       $(CFLAGS) \
-	       -I3rd-party/Catch2/single_include/ 
+	       -I3rd-party/Catch2/single_include/ \
+	       -Wl,wrap,write \
+	       -Wl,wrap,read
 
 	       
 
