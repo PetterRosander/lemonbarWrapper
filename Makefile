@@ -1,4 +1,4 @@
-CC ?= gcc
+CC = gcc
 
 IDIR = include
 ODIR = obj
@@ -13,29 +13,36 @@ CFLAGS = \
 
 _OBJ = \
       commChannel.o \
-      i3query.o \
-      main.o
+      workspace.o 
+
+_MAIN = main.o
 
 DEPS = \
        $(IDIR)/commChannel.h \
-       $(IDIR)/i3query.h \
+       $(IDIR)/workspace.h \
 
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
+MAIN = $(patsubst %,$(ODIR)/%,$(_MAIN))
 
+include test/test.mk
 
 all: obj lemonWrapper
+
+obj:
+	mkdir -p $@
+	
+lemonWrapper: $(OBJ) $(MAIN)
+	$(CC) -o $@ $^ $(CFLAGS)
+
+clean: 
+	find . -name '*.o' -exec rm -rf {} \;
+	find . -name '*.d' -exec rm -rf {} \;
+	rm -f lemonWrapper test-all
+
 
 $(ODIR)/%.o: $(SDIR)/%.c $(DEPS)
 	$(CC) -MMD -c -o $@ $< $(CFLAGS) 
 
 -include $(ODIR)/.*d
 
-obj:
-	mkdir -p $@
-	
-lemonWrapper: $(OBJ)
-	$(CC) -o $@ $^ $(CFLAGS)
-
-clean: 
-	find . -name '*.o' -exec rm -rf {} \;
-	rm -f lemonWrapper
+.PHONY: lemonWrapper test

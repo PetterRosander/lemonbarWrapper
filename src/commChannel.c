@@ -5,7 +5,7 @@
 #include <string.h>
 
 #include "commChannel.h"
-#include "i3query.h"
+#include "workspace.h"
 
 #define LEMONBAR "lemonbar -u 2"
 

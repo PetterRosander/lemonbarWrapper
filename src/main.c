@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include "commChannel.h"
-#include "i3query.h"
+#include "workspace.h"
 
 #define ERROR(error) \
     fprintf(stderr, "%s\n", error); \
@@ -36,32 +36,32 @@ int main(int argc, char *argv[])
     }
 
     
-    struct workspace ws = {0};
-    if(subscribeWorkSpace(&ws, i3path) != 0){
+    struct workspace *ws = NULL;
+    if(workspace_init(ws, i3path) != 0){
 	perror("subscribe error");
     }
     
-    if(startWorkSpace(&ws) != 0){
-	perror("subscribe error");
-    }
+    //if(startWorkSpace(&ws) != 0){
+    //    perror("subscribe error");
+    //}
 
-    jsonParseMessageCommand(&ws);
-    
-    if(formatLemonBar(&lm, ws) != 0){
-	perror("setting up bar");
-    }
+    //jsonParseMessageCommand(&ws);
+    //
+    //if(formatLemonBar(&lm, ws) != 0){
+    //    perror("setting up bar");
+    //}
 
-    if(sendlemonBar(lm)!= 0){
-	perror("send error ");
-    }
+    //if(sendlemonBar(lm)!= 0){
+    //    perror("send error ");
+    //}
 
-    while(true){
-	runLoop(&ws, &lm);
-    }
+    //while(true){
+    //    runLoop(&ws, &lm);
+    //}
 
     return 0;
 }
-
+#if 0
 #include <poll.h>
 static void runLoop(struct workspace *ws, struct lemonbar *lm)
 {
@@ -93,4 +93,4 @@ static void runLoop(struct workspace *ws, struct lemonbar *lm)
     }
 
 }
-
+#endif
