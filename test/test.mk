@@ -1,19 +1,22 @@
 ODIR_TEST=$(ODIR)
 TDIR=test
 CFLAGS_TEST = \
+	      -g \
 	      -I$(IDIR) \
 	      -I$(JSMN) \
 	      -I3rd-party/Catch2/single_include/ \
 	      -fsanitize=address \
 	      -fno-omit-frame-pointer \
 	      -pedantic \
-	      -Werror
+	      -Werror \
+
 TEST_LIB = \
 	   -lgcov --coverage
 
 _OBJ_TEST = \
 	   test-workspace.o \
-	   mock-symbol.o
+	   mock-symbol.o \
+	   test-main.o
 
 OBJ_TEST = $(patsubst %,$(ODIR_TEST)/%,$(_OBJ_TEST))
 
@@ -21,11 +24,11 @@ test: obj test-all gen-cov
 test-ncov: obj test-all
 
 test-all: CC_TEST = c++ 
+test-all: _OBJ += c-api.o
 test-all: CFLAGS += \
+    -g \
     -fsanitize=address \
     -fno-omit-frame-pointer \
-    -Wl,--wrap=write \
-    -Wl,--wrap=read \
     -fprofile-arcs \
     -ftest-coverage
 

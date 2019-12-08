@@ -16,75 +16,52 @@
 
 #include "workspace.h"
 
-#define NBR_JSMN_TOKENS 1024
-#define JSMN_STATIC
-#include "jsmn.h"
-
-/******************************************************************************
- * enum internal to workspace
- *****************************************************************************/
-enum I3_TYPE {
-    COMMAND = 0,
-    SUBSCRIBE = 1
-};
-
-
-/******************************************************************************
- * semi local declaration 
- *****************************************************************************/
-//TODO: Make this const
-static const struct workspace ws_;
-
-/******************************************************************************
- * Local function declarations
- *****************************************************************************/
-static void formatMessage(enum I3_TYPE type, unsigned char *packet);
-static void parseChangefocus(jsmn_parser parser, jsmntok_t *token, 
-	int numberTokens, struct workspace *ws);
-static void parseChangeinit(jsmn_parser parser, jsmntok_t *token, 
-	int numberTokens, struct workspace *ws);
-
-static int setupSocket(struct workspace *ws, char *i3path);
-static int subscribeWorkspace(struct workspace *ws);
-static int startWorkSpace(struct workspace *ws);
-
-
-static inline int workspace_eventWorkspace(struct workspace *ws);
-static int eventWorkspace__();
-
 /******************************************************************************
  * exported functions declaration
  *****************************************************************************/
-int workspace_init(struct workspace *ws, char *i3path)
+struct workspace *workspace_init(char *i3path)
 {
-    ws = (struct workspace *)&ws_; 
+    struct workspace *ws = calloc(1, sizeof(struct workspace)); 
+    struct workspace_internal__
+	*internal = calloc(1, sizeof(struct workspace_internal__));
+    
+    ws->event = eventWorkspace__;
+    ws->internal = internal;
+    printf("%p\n", (void *)(ws)->internal);
+
+
     if(setupSocket(ws, i3path) != 0){
-	return -1;
+	free(ws->internal);
+	free(ws);
+
+        return NULL;
     }
 
     if(subscribeWorkspace(ws) != 0){
-	return -1;
+	free(ws->internal);
+	free(ws);
+        return NULL;
     }
 
-    ws->event = eventWorkspace__;
-
-
     startWorkSpace(ws);
+    return ws;
+}
+
+int workspace_destroy(struct workspace *ws)
+{
+    free(ws->internal);
+    ws->internal = NULL;
+
+    free(ws);
+    ws = NULL;
     return 0;
 }
 
-/******************************************************************************
- * Callback functions used by other modules (wrapper functions)
- *****************************************************************************/
-static int eventWorkspace__()
-{
-    return workspace_eventWorkspace((struct workspace *)&ws_);
-}
 
 /******************************************************************************
  * Inlined functions used by the wrapper functions
  *****************************************************************************/
-static inline int workspace_eventWorkspace(struct workspace *ws)
+workspacePrivate int eventWorkspace__(struct workspace *ws)
 {
     unsigned char event[14] = {0};
 
@@ -109,6 +86,7 @@ static inline int workspace_eventWorkspace(struct workspace *ws)
 static int setupSocket(struct workspace *ws, char *i3path)
 {
     int i3Sock = socket(PF_LOCAL, SOCK_STREAM, 0);
+    ws->fd = i3Sock;
     if(i3Sock < 0){
 	return -1;
     }
@@ -120,7 +98,6 @@ static int setupSocket(struct workspace *ws, char *i3path)
     if(connect(i3Sock, (const struct sockaddr *)&addr, sizeof(addr)) < 0){
 	return -1;
     }
-    ws->fd = i3Sock;
     return 0;
 }
 
@@ -170,7 +147,7 @@ static int startWorkSpace(struct workspace *ws)
     len += (uint32_t)reply[6] << (8*0);
     len += (uint32_t)reply[7] << (8*1);
 
-    ws->internal->lenjson_i3 = read(ws->fd, (&(ws->internal->json_i3))[0], len);
+    ws->internal->lenjson_i3 = read(ws->fd, &(ws->internal->json_i3[0]), len);
 
     return 0;
 }
@@ -192,7 +169,8 @@ int jsonParseMessageEvent(struct workspace *ws)
 
     jsmn_init(&parser);
 
-    int numberTokens = jsmn_parse(&parser, ws->internal->json_i3, ws->internal->lenjson_i3, token, 
+    int numberTokens = jsmn_parse(&parser, ws->internal->json_i3, 
+	    ws->internal->lenjson_i3, token, 
 				  NBR_JSMN_TOKENS);
 
     if(numberTokens < 1){
@@ -221,8 +199,8 @@ int jsonParseMessageCommand(struct workspace *ws)
 
     jsmn_init(&parser);
 
-    int ret = jsmn_parse(&parser, ws->internal->json_i3, ws->internal->lenjson_i3, token, 
-	    NBR_JSMN_TOKENS);
+    int ret = jsmn_parse(&parser, ws->internal->json_i3, 
+	    ws->internal->lenjson_i3, token, NBR_JSMN_TOKENS);
 
     if(ret < 1){
        return -1;
@@ -245,7 +223,8 @@ int jsonParseMessageCommand(struct workspace *ws)
 	    }
 	    i++;
 	} else if(jsoneq(ws->internal->json_i3, &token[i], "name") == 0){
-	    strncpy(ws->json[n].name, ws->internal->json_i3 + token[i + 1].start, 
+	    strncpy(ws->json[n].name, 
+		    ws->internal->json_i3 + token[i + 1].start, 
 		    token[i + 1].end - token[i + 1].start);
 	    i++;
 	} else if(jsoneq(ws->internal->json_i3, &token[i], "num") == 0){
