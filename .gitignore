@@ -1,3 +1,5 @@
 obj
 lemonWrapper
 test-all
+coverage.info
+coverage

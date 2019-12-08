@@ -37,7 +37,7 @@ lemonWrapper: $(OBJ) $(MAIN)
 clean: 
 	find . -name '*.o' -exec rm -rf {} \;
 	find . -name '*.d' -exec rm -rf {} \;
-	rm -f lemonWrapper test-all
+	rm -rf lemonWrapper test-all coverage.info coverage
 
 
 $(ODIR)/%.o: $(SDIR)/%.c $(DEPS)
