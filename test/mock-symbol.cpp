@@ -6,72 +6,82 @@
 #include <string.h>
 #include <stdio.h>
 #include "mock-symbol.hpp"
+#define __FUNC__ (__func__ + 7)
 
 /******************************************************************************
  * c++ mock implementation 
  *****************************************************************************/
-int mockSymbol::socket(int domain, int type, int protocol)
+static mockSymbol sym;
+
+void mockSymbol::setReturn(std::string symbol, int value)
 {
-    std::vector <int> vec;
-    int vec_len = return_map["socket"].size();
+    return_map[symbol].push_back(value);
+}
+
+int mockSymbol::willReturn(std::string symbol)
+{
+    std::vector<int> vec;
+    int vec_len = return_map[symbol].size();
     int result = 0;
     if(vec_len != 0){
-	result = return_map["socket"].front();
+	result = return_map[symbol].front();
     }
-    return_map["socket"].pop_back();
+    return_map[symbol].pop_back();
     return result;
 }
 
-int mockSymbol::connect(int fd, const struct sockaddr *, socklen_t)
+void mockSymbol::setSymbol(
+	std::string symbol, 
+	unsigned char* buf,
+	size_t len)
 {
-    return 0;
+    unsigned char *info = (unsigned char*)calloc(len, sizeof(unsigned char));
+    memcpy(info, buf, len);
+    symbol_map[symbol].push_back(info);
 }
 
-int mockSymbol::write(int fd, const void *buf, size_t count)
+void mockSymbol::getSymbol(
+	std::string symbol, 
+	unsigned char* buf,
+	size_t len)
 {
-    std::string _buf = (char *)buf;
-    
-    writeBuffer.push_back(_buf);
-    return count;
+    if(symbol_map[symbol].size() == 0){
+	return;
+    }
+    memcpy(buf, symbol_map[symbol].front(), len);
+    free(symbol_map[symbol].front());
+    symbol_map[symbol].front() = NULL;
+    symbol_map[symbol].erase(symbol_map[symbol].begin());
 }
 
-ssize_t mockSymbol::read(int fd, void *buf, size_t count)
-{
-    strcpy((char *)buf, "Some");
-    return count;
-}
-
-void mockSymbol::will_return(std::string symbol, int retVal)
-{
-    return_map[symbol].push_back(retVal);
-}
 /******************************************************************************
  * c interface functions
  *****************************************************************************/
-static mockSymbol sym;
-
 mockSymbol *mockSymbol_init(void)
 {
     return &sym;
 }
 
-int socket(int domain, int type, int protocol)
+extern "C" int __wrap_socket(int domain, int type, int protocol)
 {
-    return sym.socket(domain, type, protocol);
+    return sym.willReturn(__FUNC__);
 }
 
-int connect(int sockfd, const struct sockaddr *addr,
+extern "C" int __wrap_connect(int sockfd, const struct sockaddr *addr,
 	socklen_t addrlen)
 {
-    return sym.connect(sockfd, addr, addrlen);
+    return sym.willReturn(__FUNC__);
 }
 
-int write(int fd, const void *buf, size_t count)
+extern "C" int __wrap_write(int fd, const void *buf, size_t count)
 {
-    return sym.write(fd, buf, count);
+    sym.setSymbol(__FUNC__, (unsigned char *)buf, count);
+
+    return count;
 }
 
-ssize_t read(int fd, void *buf, size_t count)
+extern "C" ssize_t __wrap_read(int fd, void *buf, size_t count)
 {
-    return sym.read(fd, buf, count);
+    sym.getSymbol(__FUNC__, (unsigned char *)buf, count);
+    return sym.willReturn(__FUNC__);
 }

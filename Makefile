@@ -13,7 +13,8 @@ CFLAGS = \
 
 _OBJ = \
       commChannel.o \
-      workspace.o 
+      workspace.o \
+      task-runner.o
 
 _MAIN = main.o
 

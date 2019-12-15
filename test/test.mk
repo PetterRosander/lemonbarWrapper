@@ -1,14 +1,26 @@
 ODIR_TEST=$(ODIR)
 TDIR=test
+
+MOCK_FUNCTIONS = \
+		 -Wl,--wrap=read \
+    	      	 -Wl,--wrap=socket \
+    	         -Wl,--wrap=write \
+    	         -Wl,--wrap=connect
+
+COMMON_TEST_FLAGS = \
+		    -g \
+		    -fno-omit-frame-pointer \
+		    -fsanitize=address \
+		    -pedantic \
+		    -Werror \
+		    -DWORKSPACE_PRIVATE
+
 CFLAGS_TEST = \
-	      -g \
 	      -I$(IDIR) \
 	      -I$(JSMN) \
 	      -I3rd-party/Catch2/single_include/ \
-	      -fsanitize=address \
-	      -fno-omit-frame-pointer \
-	      -pedantic \
-	      -Werror \
+	      $(COMMON_TEST_FLAGS) \
+	      $(MOCK_FUNCTIONS)
 
 TEST_LIB = \
 	   -lgcov --coverage
@@ -20,17 +32,14 @@ _OBJ_TEST = \
 
 OBJ_TEST = $(patsubst %,$(ODIR_TEST)/%,$(_OBJ_TEST))
 
-test: obj test-all gen-cov
-test-ncov: obj test-all
+test-ncov: obj test-all gen-cov
+test: obj test-all
 
 test-all: CC_TEST = c++ 
 test-all: _OBJ += c-api.o
 test-all: CFLAGS += \
-    -g \
-    -fsanitize=address \
-    -fno-omit-frame-pointer \
-    -fprofile-arcs \
-    -ftest-coverage
+    $(COMMON_TEST_FLAGS) \
+    $(MOCK_FUNCTIONS)
 
 
 test-all: $(OBJ) $(OBJ_TEST)

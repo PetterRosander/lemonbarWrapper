@@ -7,17 +7,27 @@
 #include <sys/socket.h>
 class mockSymbol {
     public:
-	int socket(int, int, int); 
-	int connect(int, const struct sockaddr *, socklen_t);
-	int write(int, const void *, size_t);
-	ssize_t read(int, void *, size_t);
-	void will_return(std::string symbol, int retVal);
+	int willReturn(std::string);
+	void setReturn(std::string, int);
+	void setSymbol(std::string symbol, unsigned char* buf, size_t len);
+	void getSymbol(std::string symbol, unsigned char* buf, size_t len);
 
-    //private:
+    private:
 	std::vector<std::string> writeBuffer;
 	std::map<std::string, std::vector<int> > return_map;
+	std::map<std::string, std::vector<unsigned char*> > symbol_map;
 
 };
 
 mockSymbol *mockSymbol_init(void);
+
+#define INIT_MOCK() \
+    mockSymbol *mock = mockSymbol_init();
+
+#define SET_MOCK_SYMBOL(symbol, value) \
+    mock->setReturn(#symbol, value);
+
+#define GET_MOCK_SYMBOL(symbol, value, len) \
+    mock->getSymbol(#symbol, (unsigned char*)value, len);
+
 #endif
