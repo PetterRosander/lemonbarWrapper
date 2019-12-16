@@ -8,6 +8,7 @@
 class mockSymbol {
     public:
 	int willReturn(std::string);
+	int clearSymbol();
 	void setReturn(std::string, int);
 	void setSymbol(std::string symbol, unsigned char* buf, size_t len);
 	void getSymbol(std::string symbol, unsigned char* buf, size_t len);
@@ -21,13 +22,19 @@ class mockSymbol {
 
 mockSymbol *mockSymbol_init(void);
 
+static mockSymbol *MOCK = NULL;
+
 #define INIT_MOCK() \
-    mockSymbol *mock = mockSymbol_init();
+    mockSymbol *mock = mockSymbol_init();\
+    MOCK = mock;
 
 #define SET_MOCK_SYMBOL(symbol, value) \
-    mock->setReturn(#symbol, value);
+    MOCK->setReturn(#symbol, value);
 
 #define GET_MOCK_SYMBOL(symbol, value, len) \
-    mock->getSymbol(#symbol, (unsigned char*)value, len);
+    MOCK->getSymbol(#symbol, (unsigned char*)value, len);
+
+#define CLEAR_SYMBOLS() \
+     MOCK->clearSymbol();\
 
 #endif

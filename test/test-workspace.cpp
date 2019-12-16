@@ -5,11 +5,15 @@
 #include <vector>
 
 #include "catch2/catch.hpp"
-#include "mock-symbol.hpp"
 
 #define __WORKSPACE__
 #include "workspace.h"
 #include "task-runner.h"
+
+#define MOCK __MOCK__WORKSPACE__
+#include "mock-symbol.hpp"
+
+#include <string.h>
 
 struct workspaceTest {
     struct taskRunner task;
@@ -18,6 +22,7 @@ struct workspaceTest {
 
 void setup(void **state)
 {
+    INIT_MOCK();
     std::string path = "./path";
     struct workspaceTest *test = 
 	(struct workspaceTest *)calloc(1, sizeof(struct workspaceTest));
@@ -25,11 +30,13 @@ void setup(void **state)
     *state = test;
 }
 
-void teardown(void **state)
+int teardown(void **state)
 {
     struct workspaceTest *test = (struct workspaceTest *)*state;
     workspace_destroy(test->ws);
     free(test);
+    int size = CLEAR_SYMBOLS();
+    return size;
 }
 
 
@@ -39,8 +46,6 @@ TEST_CASE( "Unittest - setting up unix socket and connecting to i3",
 {
     struct workspaceTest *test = NULL;
     setup((void **)&test);
-
-    INIT_MOCK();
 
     int fdMock      = 10;
     int connectMock = 0;
@@ -53,16 +58,14 @@ TEST_CASE( "Unittest - setting up unix socket and connecting to i3",
     REQUIRE(test->task.exitStatus == 0);
     REQUIRE(test->task.nextTask == workspace_subscribeWorkspace);
 
-    teardown((void **)&test);
+    REQUIRE( teardown((void **)&test) == 0);
 }
 
-TEST_CASE( "Unittest - Make sure we subsrcibe correctly to i3",  
+TEST_CASE( "Unittest - Make sure we subscribe correctly to i3",  
   	   "[Workspace]" )
 {
     struct workspaceTest *test = NULL;
     setup((void **)&test);
-
-    INIT_MOCK();
 
     SET_MOCK_SYMBOL(read, -1);
 
@@ -70,9 +73,9 @@ TEST_CASE( "Unittest - Make sure we subsrcibe correctly to i3",
 
     unsigned char buf[20] = {0};
     GET_MOCK_SYMBOL(write, buf, 14);
-    printf("%s\n", buf);
+    REQUIRE( memcmp((const void *)buf, (const void *)"i3-ipc\x15\x0\x0\x0\x2\x0\x0", 14)  == 0);
     GET_MOCK_SYMBOL(write, buf, 16);
-    printf("%s\n", buf);
+    REQUIRE( memcmp((const void *)buf, (const void *)"[ \"workspace\" ]", 16)  == 0);
 
-    teardown((void **)&test);
+    REQUIRE(teardown((void **)&test) == 0);
 }

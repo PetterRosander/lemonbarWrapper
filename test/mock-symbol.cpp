@@ -11,7 +11,7 @@
 /******************************************************************************
  * c++ mock implementation 
  *****************************************************************************/
-static mockSymbol sym;
+static mockSymbol *sym = NULL;
 
 void mockSymbol::setReturn(std::string symbol, int value)
 {
@@ -54,34 +54,51 @@ void mockSymbol::getSymbol(
     symbol_map[symbol].erase(symbol_map[symbol].begin());
 }
 
+int mockSymbol::clearSymbol()
+{
+    int uncheckedSymbols = 0;
+    for(auto const& x :symbol_map){
+	std::vector<unsigned char*> vec = x.second;
+	int size = vec.size();
+	uncheckedSymbols += size;
+	for(auto &value: vec){
+	    free(value);
+	    value = NULL;
+	}
+    }
+    delete sym;
+    return uncheckedSymbols;
+}
+
 /******************************************************************************
  * c interface functions
  *****************************************************************************/
 mockSymbol *mockSymbol_init(void)
 {
-    return &sym;
+    sym = new mockSymbol;
+    return sym;
 }
 
 extern "C" int __wrap_socket(int domain, int type, int protocol)
 {
-    return sym.willReturn(__FUNC__);
+    return sym->willReturn(__FUNC__);
 }
 
 extern "C" int __wrap_connect(int sockfd, const struct sockaddr *addr,
 	socklen_t addrlen)
 {
-    return sym.willReturn(__FUNC__);
+    return sym->willReturn(__FUNC__);
 }
 
 extern "C" int __wrap_write(int fd, const void *buf, size_t count)
 {
-    sym.setSymbol(__FUNC__, (unsigned char *)buf, count);
+    sym->setSymbol(__FUNC__, (unsigned char *)buf, count);
 
     return count;
 }
 
 extern "C" ssize_t __wrap_read(int fd, void *buf, size_t count)
 {
-    sym.getSymbol(__FUNC__, (unsigned char *)buf, count);
-    return sym.willReturn(__FUNC__);
+    sym->getSymbol(__FUNC__, (unsigned char *)buf, count);
+    return sym->willReturn(__FUNC__);
 }

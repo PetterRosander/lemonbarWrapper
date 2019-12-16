@@ -363,27 +363,12 @@ workspacePrivate void parseChangeinit(jsmn_parser parser, jsmntok_t *token,
 
 workspacePrivate void formatMessage(enum I3_TYPE type, unsigned char *packet)
 {
-    memcpy(&packet[0], "i3-ipc", sizeof("i3-ipc"));
     switch(type){
 	case SUBSCRIBE:
-	    packet[6] = 15;
-	    packet[7] = 0;
-	    packet[8] = 0;
-	    packet[9] = 0;
-	    packet[10] = 2;
-	    packet[11] = 0;
-	    packet[12] = 0;
-	    packet[13] = 0;
+	    memcpy(&packet[0], "i3-ipc\x15\x0\x0\x0\x2\x0\x0", 14);
 	    break;
 	case COMMAND:
-	    packet[6] = 0;
-	    packet[7] = 0;
-	    packet[8] = 0;
-	    packet[9] = 0;
-	    packet[10] = 1;
-	    packet[11] = 0;
-	    packet[12] = 0;
-	    packet[13] = 0;
+	    memcpy(&packet[0], "i3-ipc\x0\x0\x0\x0\x1\x0\x0", 16);
 	    break;
 	default:
 	    ; // pass
