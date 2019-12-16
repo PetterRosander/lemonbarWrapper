@@ -10,8 +10,9 @@
 #include "workspace.h"
 #include "task-runner.h"
 
-#define MOCK __MOCK__WORKSPACE__
 #include "mock-symbol.hpp"
+
+#include "workspace-data.h"
 
 #include <string.h>
 
@@ -22,7 +23,6 @@ struct workspaceTest {
 
 void setup(void **state)
 {
-    INIT_MOCK();
     std::string path = "./path";
     struct workspaceTest *test = 
 	(struct workspaceTest *)calloc(1, sizeof(struct workspaceTest));
@@ -30,13 +30,11 @@ void setup(void **state)
     *state = test;
 }
 
-int teardown(void **state)
+void teardown(void **state)
 {
     struct workspaceTest *test = (struct workspaceTest *)*state;
     workspace_destroy(test->ws);
     free(test);
-    int size = CLEAR_SYMBOLS();
-    return size;
 }
 
 
@@ -45,12 +43,12 @@ TEST_CASE( "Unittest - setting up unix socket and connecting to i3",
   	   "[Workspace]" )
 {
     struct workspaceTest *test = NULL;
-    setup((void **)&test);
+    INIT_MOCK((void **)&test);
 
     int fdMock      = 10;
     int connectMock = 0;
-    SET_MOCK_SYMBOL(socket, fdMock);
-    SET_MOCK_SYMBOL(connect, connectMock);
+    SET_RETURN(socket, fdMock);
+    SET_RETURN(connect, connectMock);
 
 
     workspace_setupSocket(&test->task, test->ws);
@@ -58,16 +56,21 @@ TEST_CASE( "Unittest - setting up unix socket and connecting to i3",
     REQUIRE(test->task.exitStatus == 0);
     REQUIRE(test->task.nextTask == workspace_subscribeWorkspace);
 
-    REQUIRE( teardown((void **)&test) == 0);
+    TEARDOWN((void **)&test, 0);
 }
 
 TEST_CASE( "Unittest - Make sure we subscribe correctly to i3",  
   	   "[Workspace]" )
 {
     struct workspaceTest *test = NULL;
-    setup((void **)&test);
+    INIT_MOCK((void **)&test);
 
-    SET_MOCK_SYMBOL(read, -1);
+    test->ws->fd = 10;
+
+    SET_RETURN(read, sizeof("i3-ipc\x10\x0\x0\x0\x2\x0\x0\x0"));
+    SET_RETURN(read, sizeof("{\"success\":true}"));
+    SET_MOCK_SYMBOL(read, "i3-ipc\x10\x0\x0\x0\x2\x0\x0\x0");
+    SET_MOCK_SYMBOL(read, "{\"success\":true}");
 
     workspace_subscribeWorkspace(&test->task, test->ws);
 
@@ -77,5 +80,66 @@ TEST_CASE( "Unittest - Make sure we subscribe correctly to i3",
     GET_MOCK_SYMBOL(write, buf, 16);
     REQUIRE( memcmp((const void *)buf, (const void *)"[ \"workspace\" ]", 16)  == 0);
 
-    REQUIRE(teardown((void **)&test) == 0);
+    REQUIRE( test->task.nextTask == workspace_startWorkspace );
+
+    TEARDOWN((void **)&test, 0);
+}
+
+
+TEST_CASE( "Unittest - Make sure we get the current workspace state correctly",  
+  	   "[Workspace]" )
+{
+    struct workspaceTest *test = NULL;
+    INIT_MOCK((void **)&test);
+
+    test->ws->fd = 10;
+
+    SET_RETURN(read, sizeof("i3-ipc\x01\x07\x0\x0\x1\x0\x0\x0"));
+    SET_RETURN(read, sizeof(STARTWORKSPACE));
+    SET_MOCK_SYMBOL(read, "i3-ipc\x07\x01\x0\x0\x1\x0\x0\x0");
+    SET_MOCK_SYMBOL(read, STARTWORKSPACE);
+
+    workspace_startWorkspace(&test->task, test->ws);
+    REQUIRE (strncmp(test->ws->internal->json, STARTWORKSPACE, 263) == 0 );
+    REQUIRE (test->ws->internal->lenjson == sizeof(STARTWORKSPACE) );
+    free(test->ws->internal->json);
+    test->ws->internal->json = NULL;
+
+
+    unsigned char buf[14] = {0};
+    GET_MOCK_SYMBOL(write, buf, 14);
+    REQUIRE( memcmp((const void *)buf, (const void *)"i3-ipc\x0\x0\x0\x0\x1\x0\x0", 14)  == 0);
+
+    REQUIRE( test->task.nextTask == workspace_parseInitWorkspace );
+
+    TEARDOWN((void **)&test, 0);
+}
+
+TEST_CASE( "Unittest - Make sure we parse the current workspace state correctly",  
+  	   "[Workspace]" )
+{
+    struct workspaceTest *test = NULL;
+    INIT_MOCK((void **)&test);
+
+    test->ws->fd = 10;
+
+    test->ws->internal->json = (char *)malloc(sizeof(STARTWORKSPACE) * sizeof(char) + 1 );
+    strcpy(test->ws->internal->json, STARTWORKSPACE);
+    test->ws->internal->lenjson = sizeof(STARTWORKSPACE) + 1;
+    
+
+    workspace_parseInitWorkspace(&test->task, test->ws);
+
+
+    REQUIRE( test->task.nextTask == NULL );
+
+    REQUIRE( test->ws->numberws == 1);
+    REQUIRE( test->ws->json[0].focused == true);
+    REQUIRE( test->ws->json[1].focused == false);
+    REQUIRE( test->ws->json[0].num == 1);
+    REQUIRE( test->ws->json[1].num == 2);
+    REQUIRE( strcmp(test->ws->json[0].name, "1") == 0);
+    REQUIRE( strcmp(test->ws->json[1].name, "2") == 0);
+
+    TEARDOWN((void **)&test, 0);
 }

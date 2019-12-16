@@ -62,44 +62,45 @@ enum I3_TYPE {
 };
 
 struct workspace_internal__ {
-    char json_i3[1024*4];
-    size_t lenjson_i3;
+    char *json;
+    size_t lenjson;
 };
 
 /******************************************************************************
  * Local function declarations
  *****************************************************************************/
-#if WORKSPACE_PRIVATE
-#define workspacePrivate
+#if UNIT_TEST
+#define private_
 #else 
-#define workspacePrivate static
+#define private_ static
 #endif
-workspacePrivate void workspace_setup(struct workspace *);
-workspacePrivate void workspace_entryPoint(struct workspace *);
-workspacePrivate void workspace_setupSocket(
-	struct taskRunner *, 
-	void *);
-workspacePrivate void workspace_subscribeWorkspace(
-	struct taskRunner *task,
-	void *_ws_);
-workspacePrivate void event_startWorkspace(
-	struct taskRunner *task,
-	void *_ws_);
-workspacePrivate void workspace_eventWorkspace(
-	struct taskRunner *, 
-	void *);
+#include "system-calls.h"
 
+private_ void workspace_setup(struct workspace *);
+private_ void workspace_entryPoint(struct workspace *);
+private_ void workspace_setupSocket(
+	struct taskRunner *, 
+	void *);
+private_ void workspace_subscribeWorkspace(
+	struct taskRunner *,
+	void *);
+private_ void workspace_startWorkspace(
+	struct taskRunner *,
+	void *);
+private_ void workspace_eventWorkspace(
+	struct taskRunner *, 
+	void *);
+private_ void workspace_parseInitWorkspace(
+	struct taskRunner *,
+	void *);
 
 
 /* TODO the functions below */
-workspacePrivate void formatMessage(enum I3_TYPE type, unsigned char *packet);
-workspacePrivate void parseChangefocus(jsmn_parser parser, jsmntok_t *token, 
+private_ void parseChangefocus(jsmn_parser parser, jsmntok_t *token, 
 	int numberTokens, struct workspace *ws);
-workspacePrivate void parseChangeinit(jsmn_parser parser, jsmntok_t *token, 
+private_ void parseChangeinit(jsmn_parser parser, jsmntok_t *token, 
 	int numberTokens, struct workspace *ws);
-workspacePrivate int jsonParseMessageCommand(struct workspace *ws);
-workspacePrivate int jsonParseMessageEvent(struct workspace *ws);
-workspacePrivate int jsoneq(const char *json, jsmntok_t *tok, const char *s);
+private_ int jsonParseMessageEvent(struct workspace *ws);
 
 #endif /* __WORKSPACE__ */
 

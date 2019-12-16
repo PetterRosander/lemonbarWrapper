@@ -61,36 +61,3 @@ int main(int argc, char *argv[])
 
     return 0;
 }
-#if 0
-#include <poll.h>
-static void runLoop(struct workspace *ws, struct lemonbar *lm)
-{
-    struct pollfd fds[10];
-    nfds_t nfds = 1;
-    fds[0].fd = ws->fd;
-    fds[0].events = 0 | POLLIN;
-
-    int read = poll(fds, nfds, 10);
-
-
-    if(read > 0){
-	if((fds[0].revents & POLLIN) == POLLIN){
-	    if(eventi3(ws) != 0){
-		perror("subscribe error");
-	    }
-
-	    jsonParseMessageEvent(ws);
-	    if(formatLemonBar(lm, *ws) != 0){
-		perror("setting up bar");
-	    }
-
-	    if(sendlemonBar(*lm)!= 0){
-		perror("send error ");
-	    }
-
-
-	}
-    }
-
-}
-#endif

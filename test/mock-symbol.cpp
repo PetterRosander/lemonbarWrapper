@@ -4,7 +4,7 @@
 #include <sys/socket.h>
 
 #include <string.h>
-#include <stdio.h>
+#include <stdlib.h>
 #include "mock-symbol.hpp"
 #define __FUNC__ (__func__ + 7)
 
@@ -26,7 +26,7 @@ int mockSymbol::willReturn(std::string symbol)
     if(vec_len != 0){
 	result = return_map[symbol].front();
     }
-    return_map[symbol].pop_back();
+    return_map[symbol].erase(return_map[symbol].begin());
     return result;
 }
 
@@ -50,7 +50,6 @@ void mockSymbol::getSymbol(
     }
     memcpy(buf, symbol_map[symbol].front(), len);
     free(symbol_map[symbol].front());
-    symbol_map[symbol].front() = NULL;
     symbol_map[symbol].erase(symbol_map[symbol].begin());
 }
 
@@ -66,38 +65,36 @@ int mockSymbol::clearSymbol()
 	    value = NULL;
 	}
     }
-    delete sym;
     return uncheckedSymbols;
 }
 
 /******************************************************************************
  * c interface functions
  *****************************************************************************/
-mockSymbol *mockSymbol_init(void)
+void mockSymbol_init(mockSymbol *mock)
 {
-    sym = new mockSymbol;
-    return sym;
+    sym = mock;
 }
 
-extern "C" int __wrap_socket(int domain, int type, int protocol)
+extern "C" int __mock_socket(int domain, int type, int protocol)
 {
     return sym->willReturn(__FUNC__);
 }
 
-extern "C" int __wrap_connect(int sockfd, const struct sockaddr *addr,
+extern "C" int __mock_connect(int sockfd, const struct sockaddr *addr,
 	socklen_t addrlen)
 {
     return sym->willReturn(__FUNC__);
 }
 
-extern "C" int __wrap_write(int fd, const void *buf, size_t count)
+extern "C" int __mock_write(int fd, const void *buf, size_t count)
 {
     sym->setSymbol(__FUNC__, (unsigned char *)buf, count);
 
     return count;
 }
 
-extern "C" ssize_t __wrap_read(int fd, void *buf, size_t count)
+extern "C" ssize_t __mock_read(int fd, void *buf, size_t count)
 {
     sym->getSymbol(__FUNC__, (unsigned char *)buf, count);
     return sym->willReturn(__FUNC__);

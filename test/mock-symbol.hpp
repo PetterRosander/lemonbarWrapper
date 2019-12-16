@@ -20,21 +20,25 @@ class mockSymbol {
 
 };
 
-mockSymbol *mockSymbol_init(void);
+void mockSymbol_init(mockSymbol *mock);
 
-static mockSymbol *MOCK = NULL;
 
-#define INIT_MOCK() \
-    mockSymbol *mock = mockSymbol_init();\
-    MOCK = mock;
+#define INIT_MOCK(state) \
+    mockSymbol mock; \
+    mockSymbol_init(&mock);\
+    setup(state);
+
+#define SET_RETURN(symbol, value) \
+    mock.setReturn(#symbol, value);
 
 #define SET_MOCK_SYMBOL(symbol, value) \
-    MOCK->setReturn(#symbol, value);
+    mock.setSymbol(#symbol, (unsigned char *)value, sizeof(value));
 
 #define GET_MOCK_SYMBOL(symbol, value, len) \
-    MOCK->getSymbol(#symbol, (unsigned char*)value, len);
+    mock.getSymbol(#symbol, (unsigned char*)value, len);
 
-#define CLEAR_SYMBOLS() \
-     MOCK->clearSymbol();\
+#define TEARDOWN(state, symsLeft) \
+    teardown(state); \
+    REQUIRE( mock.clearSymbol() == symsLeft);
 
 #endif

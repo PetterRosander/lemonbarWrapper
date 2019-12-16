@@ -1,26 +1,19 @@
 ODIR_TEST=$(ODIR)
 TDIR=test
 
-MOCK_FUNCTIONS = \
-		 -Wl,--wrap=read \
-    	      	 -Wl,--wrap=socket \
-    	         -Wl,--wrap=write \
-    	         -Wl,--wrap=connect
-
 COMMON_TEST_FLAGS = \
 		    -g \
 		    -fno-omit-frame-pointer \
 		    -fsanitize=address \
 		    -pedantic \
 		    -Werror \
-		    -DWORKSPACE_PRIVATE
+		    -DUNIT_TEST
 
 CFLAGS_TEST = \
 	      -I$(IDIR) \
 	      -I$(JSMN) \
 	      -I3rd-party/Catch2/single_include/ \
 	      $(COMMON_TEST_FLAGS) \
-	      $(MOCK_FUNCTIONS)
 
 TEST_LIB = \
 	   -lgcov --coverage
@@ -36,10 +29,8 @@ test-ncov: obj test-all gen-cov
 test: obj test-all
 
 test-all: CC_TEST = c++ 
-test-all: _OBJ += c-api.o
 test-all: CFLAGS += \
     $(COMMON_TEST_FLAGS) \
-    $(MOCK_FUNCTIONS)
 
 
 test-all: $(OBJ) $(OBJ_TEST)
