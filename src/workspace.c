@@ -25,6 +25,11 @@
  *****************************************************************************/
 static inline void formatMessage(enum I3_TYPE type, unsigned char *packet);
 static inline int jsoneq(const char *json, jsmntok_t *tok, const char *s);
+static inline void parseChangefocus(
+	jsmn_parser parser, jsmntok_t *token, 
+	int numberTokens, struct workspace *ws);
+static inline void parseChangeinit(jsmn_parser parser, jsmntok_t *token, 
+	int numberTokens, struct workspace *ws);
 
 /******************************************************************************
  * exported functions declaration
@@ -292,59 +297,82 @@ private_ void workspace_eventWorkspace(
     ws->internal->lenjson = READ(ws->fd, ws->internal->json, len);
 
     task->exitStatus = 0;
-    task->nextTask   = NULL;
+    task->nextTask   = workspace_parseEvent;
 }
 
 
 /*
- * TODO: below
+ * Parse the current recived event from
+ * i3 supports init and focus
  */
-#if 0
-
-private_ int jsonParseMessageEvent(struct workspace *ws)
+private_ void workspace_parseEvent(
+	struct taskRunner *task,
+	void *_ws_)
 {
+    struct workspace *ws = (struct workspace *)_ws_;
     jsmn_parser parser;
     jsmntok_t token[NBR_JSMN_TOKENS];
 
     jsmn_init(&parser);
 
-    int numberTokens = jsmn_parse(&parser, ws->internal->json_i3, 
-	    ws->internal->lenjson_i3, token, 
+    int numberTokens = jsmn_parse(&parser, ws->internal->json, 
+	    ws->internal->lenjson, token, 
 				  NBR_JSMN_TOKENS);
 
     if(numberTokens < 1){
-	return -1;
-    }
-    
-    if(jsoneq(ws->internal->json_i3, &token [1], "change") == 0 &&
-       jsoneq(ws->internal->json_i3, &token [2], "focus") == 0){
-	parseChangefocus(parser, token, numberTokens, ws);
-	return 0;
+	task->exitStatus = -1;
+	task->nextTask   = NULL;
+	return;
     }
 
-    if(jsoneq(ws->internal->json_i3, &token [1], "change") == 0 &&
-       jsoneq(ws->internal->json_i3, &token [2], "init") == 0){
-	parseChangeinit(parser, token, numberTokens, ws);
-	return 0;
+    enum I3_EVENT event = UNKNOWN;    
+    if(jsoneq(ws->internal->json, &token [1], "change") == 0 &&
+       jsoneq(ws->internal->json, &token [2], "focus") == 0){
+	event = FOCUS;
     }
 
-    return -1;
+    if(jsoneq(ws->internal->json, &token [1], "change") == 0 &&
+       jsoneq(ws->internal->json, &token [2], "init") == 0){
+	event = INIT;
+    }
+
+    switch(event){
+	case INIT:
+	    parseChangeinit(parser, token, numberTokens, ws);
+	    break;
+	case FOCUS:
+	    parseChangefocus(parser, token, numberTokens, ws);
+	    break;
+	default:
+	    break;
+    }
+
+    task->exitStatus = 0;
+    task->nextTask   = NULL;
+
 }
 
-
-private_ void parseChangefocus(
+/******************************************************************************
+ * Inlined small functions (should only be used once)
+ *****************************************************************************/
+/*
+ * Parses the json when reciving 
+ * a change in focus and fills in the information
+ * in the ws
+ */
+static inline void parseChangefocus(
 	jsmn_parser parser, jsmntok_t *token, 
 	int numberTokens, struct workspace *ws)
 {
     bool current = true;
     for(int i = 0; i < numberTokens; i++){
 	if(token[i].type == JSMN_OBJECT && 
-	   jsoneq(ws->internal->json_i3, &token[i - 1], "old") == 0){
+	   jsoneq(ws->internal->json, &token[i - 1], "old") == 0){
 	    current = false;
 	}
-	if(jsoneq(ws->internal->json_i3, &token[i], "num") == 0){
+	if(jsoneq(ws->internal->json, &token[i], "num") == 0){
 	    char value[10] = {0};
-	    strncpy(value, ws->internal->json_i3 + token[i + 1].start, 
+	    strncpy(value, ws->internal->json + token[i + 1].start, 
 		    token[i + 1].end - token[i + 1].start);
 	    int num = strtol(value, NULL, 10) - 1;
 	    ws->json[num].focused = current ? true: false;
@@ -353,21 +381,27 @@ private_ void parseChangefocus(
     }
 }
 
-private_ void parseChangeinit(jsmn_parser parser, jsmntok_t *token, 
+/*
+ * Parses the json when reciving 
+ * a init that a new workspace has 
+ * been created fills in the information
+ * in the ws
+ */
+static inline void parseChangeinit(jsmn_parser parser, jsmntok_t *token, 
 	int numberTokens, struct workspace *ws)
 {
     int num = 0;
     char name[128] = {0};
     for(int i = 0; i < numberTokens; i++){
-	if(jsoneq(ws->internal->json_i3, &token[i], "num") == 0){
+	if(jsoneq(ws->internal->json, &token[i], "num") == 0){
 	    char value[10] = {0};
-	    strncpy(value, ws->internal->json_i3 + token[i + 1].start, 
+	    strncpy(value, ws->internal->json + token[i + 1].start, 
 		    token[i + 1].end - token[i + 1].start);
 	    num = strtol(value, NULL, 10) - 1;
 	    ws->json[num].focused = true;
 	    i++;
-	} else if(jsoneq(ws->internal->json_i3, &token[i], "name") == 0){
-	    strncpy(name, ws->internal->json_i3 + token[i + 1].start, 
+	} else if(jsoneq(ws->internal->json, &token[i], "name") == 0){
+	    strncpy(name, ws->internal->json + token[i + 1].start, 
 		    token[i + 1].end - token[i + 1].start);
 	    i++;
 	} 
@@ -375,10 +409,6 @@ private_ void parseChangeinit(jsmn_parser parser, jsmntok_t *token,
     strcpy(ws->json[num].name, name);
     ws->numberws = num;
 }
-#endif
-/******************************************************************************
- * Inlined small functions
- *****************************************************************************/
 /*
  * Defines what to be sent to i3 
  * subscription or command

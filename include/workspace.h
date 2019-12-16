@@ -61,6 +61,12 @@ enum I3_TYPE {
     SUBSCRIBE = 1
 };
 
+enum I3_EVENT {
+    UNKNOWN = 0,
+    INIT    = 1,
+    FOCUS   = 2
+};
+
 struct workspace_internal__ {
     char *json;
     size_t lenjson;
@@ -93,14 +99,9 @@ private_ void workspace_eventWorkspace(
 private_ void workspace_parseInitWorkspace(
 	struct taskRunner *,
 	void *);
-
-
-/* TODO the functions below */
-private_ void parseChangefocus(jsmn_parser parser, jsmntok_t *token, 
-	int numberTokens, struct workspace *ws);
-private_ void parseChangeinit(jsmn_parser parser, jsmntok_t *token, 
-	int numberTokens, struct workspace *ws);
-private_ int jsonParseMessageEvent(struct workspace *ws);
+private_ void workspace_parseEvent(
+	struct taskRunner *task,
+	void *_ws_);
 
 #endif /* __WORKSPACE__ */
 

@@ -76,9 +76,11 @@ TEST_CASE( "Unittest - Make sure we subscribe correctly to i3",
 
     unsigned char buf[20] = {0};
     GET_MOCK_SYMBOL(write, buf, 14);
-    REQUIRE( memcmp((const void *)buf, (const void *)"i3-ipc\x15\x0\x0\x0\x2\x0\x0", 14)  == 0);
+    REQUIRE( memcmp((const void *)buf, 
+		(const void *)"i3-ipc\x15\x0\x0\x0\x2\x0\x0", 14)  == 0);
     GET_MOCK_SYMBOL(write, buf, 16);
-    REQUIRE( memcmp((const void *)buf, (const void *)"[ \"workspace\" ]", 16)  == 0);
+    REQUIRE( memcmp((const void *)buf, 
+		(const void *)"[ \"workspace\" ]", 16)  == 0);
 
     REQUIRE( test->task.nextTask == workspace_startWorkspace );
 
@@ -108,7 +110,8 @@ TEST_CASE( "Unittest - Make sure we get the current workspace state correctly",
 
     unsigned char buf[14] = {0};
     GET_MOCK_SYMBOL(write, buf, 14);
-    REQUIRE( memcmp((const void *)buf, (const void *)"i3-ipc\x0\x0\x0\x0\x1\x0\x0", 14)  == 0);
+    REQUIRE( memcmp((const void *)buf, 
+		(const void *)"i3-ipc\x0\x0\x0\x0\x1\x0\x0", 14)  == 0);
 
     REQUIRE( test->task.nextTask == workspace_parseInitWorkspace );
 
@@ -123,16 +126,14 @@ TEST_CASE( "Unittest - Make sure we parse the current workspace state correctly"
 
     test->ws->fd = 10;
 
-    test->ws->internal->json = (char *)malloc(sizeof(STARTWORKSPACE) * sizeof(char) + 1 );
+    test->ws->internal->json = 
+	(char *)malloc(sizeof(STARTWORKSPACE) * sizeof(char) + 1 );
     strcpy(test->ws->internal->json, STARTWORKSPACE);
     test->ws->internal->lenjson = sizeof(STARTWORKSPACE) + 1;
-    
 
     workspace_parseInitWorkspace(&test->task, test->ws);
 
-
     REQUIRE( test->task.nextTask == NULL );
-
     REQUIRE( test->ws->numberws == 1);
     REQUIRE( test->ws->json[0].focused == true);
     REQUIRE( test->ws->json[1].focused == false);
@@ -140,6 +141,31 @@ TEST_CASE( "Unittest - Make sure we parse the current workspace state correctly"
     REQUIRE( test->ws->json[1].num == 2);
     REQUIRE( strcmp(test->ws->json[0].name, "1") == 0);
     REQUIRE( strcmp(test->ws->json[1].name, "2") == 0);
+
+    TEARDOWN((void **)&test, 0);
+}
+
+TEST_CASE( "Unittest - Read a new event",  
+  	   "[Workspace]" )
+{
+    struct workspaceTest *test = NULL;
+    INIT_MOCK((void **)&test);
+
+    test->ws->fd = 10;
+
+    SET_RETURN(read, sizeof("i3-ipc\xd5\x0b\x0\x0\x1\x0\x0\x0"));
+    SET_RETURN(read, sizeof(CHANGEFOCUS));
+    SET_MOCK_SYMBOL(read, "i3-ipc\xd5\x0b\x0\x0\x1\x0\x0\x0");
+    SET_MOCK_SYMBOL(read, CHANGEFOCUS);
+
+    workspace_eventWorkspace(&test->task, test->ws);
+    REQUIRE (strncmp(test->ws->internal->json, CHANGEFOCUS, 263) == 0 );
+    REQUIRE (test->ws->internal->lenjson == sizeof(CHANGEFOCUS) );
+    free(test->ws->internal->json);
+    test->ws->internal->json = NULL;
+
+
+    REQUIRE( test->task.nextTask == workspace_parseEvent );
 
     TEARDOWN((void **)&test, 0);
 }
