@@ -68,6 +68,7 @@ struct workspace *workspace_init(char *i3path)
 
     ws->setup = workspace_setup;
     ws->event = workspace_entryPoint;
+    strcpy(ws->i3path, i3path);
 
     return ws;
 }
@@ -93,6 +94,7 @@ private_ void workspace_setup(struct workspace *ws)
 {
     struct taskRunner task = {0};
     task.nextTask = workspace_setupSocket;
+    task.arg = ws;
     taskRunner_runTask(task);
 }
 
@@ -100,6 +102,7 @@ private_ void workspace_entryPoint(struct workspace *ws)
 {
     struct taskRunner task = {0};
     task.nextTask = workspace_eventWorkspace;
+    task.arg = ws;
     taskRunner_runTask(task);
 }
 
@@ -115,9 +118,9 @@ private_ void workspace_setupSocket(
 	void *_ws_)
 {
     struct workspace *ws = _ws_;
-    int i3Sock = SOCKET(PF_LOCAL, SOCK_STREAM, 0);
-    ws->fd = i3Sock;
-    if(i3Sock < 0){
+     ws->fd = SOCKET(PF_LOCAL, SOCK_STREAM, 0);
+
+    if(ws->fd < 0){
 	task->exitStatus = -1;
 	task->nextTask   = NULL;
 	return;
@@ -125,7 +128,7 @@ private_ void workspace_setupSocket(
 
     struct sockaddr_un addr = {0}; 
     addr.sun_family = AF_LOCAL;
-    strncpy(addr.sun_path, ws->i3Path, strlen(ws->i3Path));
+    strncpy(addr.sun_path, ws->i3path, strlen(ws->i3path));
 
     if(CONNECT(ws->fd, (const struct sockaddr *)&addr, sizeof(addr)) < 0){
 	task->exitStatus = -1;
@@ -165,6 +168,7 @@ private_ void workspace_subscribeWorkspace(
     unsigned char reply[20] = {0};
     int i = READ(ws->fd, (void *)&reply[0], 14);
     if(i < -1){
+	perror("write");
 	task->nextTask = NULL;
 	task->exitStatus = -1;
 	return;
@@ -260,6 +264,7 @@ private_ void workspace_parseInitWorkspace(
 	    } else {
 		ws->json[n].focused = false;
 	    }
+	    ws->json[n].active = true;
 	    i++;
 	} else if(jsoneq(ws->internal->json, &token[i], "name") == 0){
 	    strncpy(ws->json[n].name, 
@@ -485,7 +490,7 @@ static inline void formatMessage(enum I3_TYPE type, unsigned char *packet)
 {
     switch(type){
 	case SUBSCRIBE:
-	    memcpy(&packet[0], "i3-ipc\x15\x0\x0\x0\x2\x0\x0", 14);
+	    memcpy(&packet[0], "i3-ipc\x0F\x0\x0\x0\x2\x0\x0", 14);
 	    break;
 	case COMMAND:
 	    memcpy(&packet[0], "i3-ipc\x0\x0\x0\x0\x1\x0\x0", 14);

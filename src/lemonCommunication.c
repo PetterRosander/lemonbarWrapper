@@ -17,8 +17,8 @@
 
 #define LEMONBAR "lemonbar -u 2"
 
-#define STDIN 0
-#define STDOUT 1
+#define PIPE_READ 0
+#define PIPE_WRITE 1
 
 /******************************************************************************
  * inlined function declarations
@@ -61,6 +61,8 @@ struct lemonbar *lemon_init(void)
 
 int lemon_destroy(struct lemonbar *lm)
 {
+    free(lm->internal);
+    lm->internal = NULL;
     free(lm);
     lm = NULL;
     return 0;
@@ -72,12 +74,14 @@ int lemon_destroy(struct lemonbar *lm)
 private_ void lemon_setup(struct lemonbar *lm){
     struct taskRunner task = {0};
     task.nextTask = lemon_setupCommunication;
+    task.arg = lm;
     taskRunner_runTask(task);
 }
 
 private_ void lemon_com(struct lemonbar *lm){
     struct taskRunner task = {0};
     task.nextTask = lemon_action;
+    task.arg = lm;
     taskRunner_runTask(task);
 }
 
@@ -90,16 +94,17 @@ private_ void lemon_setupCommunication(
 	void *_lm_)
 {
     struct lemonbar *lm = _lm_;
-    lm->internal->pid = popen2(LEMONBAR, &lm->internal->stdin, 
-	    &lm->stdout);
+    lm->internal->pid = popen2(LEMONBAR, &lm->internal->pipeWrite,
+	    &lm->pipeRead);
 
     if(lm->internal->pid < 0) {
 	task->exitStatus = -1;
 	task->nextTask   = NULL;
 	return;
     }
+    lm->action = WORKSPACE;
     task->exitStatus = 0;
-    task->nextTask = NULL;
+    task->nextTask = lemon_action;
 }
 
 
@@ -143,25 +148,23 @@ private_ void lemon_formatWorkspace(
 	    currLen += 
 		sprintf(&lm->internal->lemonFormat[0] + currLen,
 		       	"%s | ", ws->json[i].name);
-	} else {
-	    currLen += 
-		sprintf(&lm->internal->lemonFormat[0] + currLen, 
-			"%s | ", ws->json[i].name);
-	}
+	} 
     }
+    sprintf(&lm->internal->lemonFormat[0] + currLen - 3, "\n");
+    currLen -= 2;
     lm->internal->lenFormat = currLen;
     task->exitStatus = 0;
-    task->nextTask   = NULL;
+    task->nextTask   = lemon_sendLemonbar;
 }
 
 
-private_ void sendlemonBar(
+private_ void lemon_sendLemonbar(
 	struct taskRunner *task,
 	void * _lm_)
 {
     struct lemonbar *lm = _lm_;
-    size_t sentBytes = WRITE(lm->stdout, lm->internal->lemonFormat, 
-	    lm->internal->lenFormat);
+    size_t sentBytes = WRITE(lm->internal->pipeWrite, 
+	    lm->internal->lemonFormat, lm->internal->lenFormat);
     if(lm->internal->lenFormat != sentBytes){
 	task->exitStatus = -1;
 	task->nextTask   = NULL;
@@ -196,25 +199,25 @@ static inline pid_t popen2(
     if (pid < 0){
 	return pid;
     } else if (pid == 0){
-	close(p_stdin[STDIN]);
-	dup2(p_stdin[STDIN], STDIN);
-	close(p_stdout[STDIN]);
-	dup2(p_stdout[STDOUT], STDOUT);
+	close(p_stdin[PIPE_WRITE]);
+	dup2(p_stdin[PIPE_READ], PIPE_READ);
+	close(p_stdout[PIPE_READ]);
+	dup2(p_stdout[PIPE_WRITE], PIPE_WRITE);
 	execl("/bin/sh", "sh", "-c", command, NULL);
 	perror("execl");
 	exit(1);
     }
 
     if (infp == NULL){
-	close(p_stdin[STDOUT]);
+	close(p_stdin[PIPE_WRITE]);
     } else{
-	*infp = p_stdin[STDOUT];
+	*infp = p_stdin[PIPE_WRITE];
     }
 
     if (outfp == NULL){
-	close(p_stdout[STDIN]);
+	close(p_stdout[PIPE_READ]);
     } else {
-	*outfp = p_stdout[STDIN];
+	*outfp = p_stdout[PIPE_READ];
     }
 
     return pid;

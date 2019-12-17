@@ -76,7 +76,7 @@ TEST_CASE( "Unittest - Make sure we subscribe correctly to i3",
     unsigned char buf[20] = {0};
     GET_MOCK_SYMBOL(write, buf, 14);
     REQUIRE( memcmp((const void *)buf, 
-		(const void *)"i3-ipc\x15\x0\x0\x0\x2\x0\x0", 14)  == 0);
+		(const void *)"i3-ipc\x0F\x0\x0\x0\x2\x0\x0", 14)  == 0);
     GET_MOCK_SYMBOL(write, buf, 16);
     REQUIRE( memcmp((const void *)buf, 
 		(const void *)"[ \"workspace\" ]", 16)  == 0);

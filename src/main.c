@@ -22,7 +22,6 @@ int main(int argc, char *argv[])
 	switch(opt){
 	case 'p':
 	    strcpy(i3path, optarg);
-	    printf("%s\n", i3path);
 	    break;
 	default:
 	    printf("Unknown option"); 
@@ -34,9 +33,15 @@ int main(int argc, char *argv[])
     ws->setup(ws);
 
     struct lemonbar *lm = lemon_init();
+    lm->ws = ws;
     lm->setup(lm);
 
     runLoop(ws, lm);
+    sleep(10);
+    
+    workspace_destroy(ws);
+    lemon_destroy(lm);
+
 
     return 0;
 }

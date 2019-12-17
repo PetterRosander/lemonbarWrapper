@@ -6,10 +6,13 @@ SDIR = src
 JSMN = 3rd-party/jsmn/
 
 CFLAGS = \
+	 -g \
 	 -pedantic \
 	 -Werror \
 	 -I$(IDIR)/ \
-	 -I$(JSMN)
+	 -I$(JSMN) \
+	 -fsanitize=address \
+	 -fno-omit-frame-pointer
 
 _OBJ = \
       lemonCommunication.o \
@@ -43,7 +46,7 @@ clean:
 
 
 $(ODIR)/%.o: $(SDIR)/%.c $(DEPS)
-	$(CC) -MMD -c -o $@ $< $(CFLAGS) 
+	$(CC) -MMD -c -o $@ $< $(CFLAGS)
 
 -include $(ODIR)/.*d
 

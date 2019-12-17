@@ -33,7 +33,7 @@ struct parsedJsonInformation
 struct workspace 
 {
     int fd;
-    char i3Path[100];
+    char i3path[100];
     struct parsedJsonInformation json[NUMBER_WORKSPACES];
     _workspace_entryPoint_ event;
     _workspace_entryPoint_ setup;

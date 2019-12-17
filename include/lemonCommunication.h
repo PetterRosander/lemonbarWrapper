@@ -26,7 +26,7 @@ enum lemonAction {
 
 struct lemonbar
 {
-    int stdout;
+    int pipeRead;
     struct workspace *ws;
     enum lemonAction action;
     _lemonbar_entryPoint_ setup;
@@ -52,7 +52,7 @@ int lemon_destroy(struct lemonbar *lm);
  * enum internal to workspace
  *****************************************************************************/
 struct lemon_internal__ {
-    int stdin;
+    int pipeWrite;
     pid_t pid;
     size_t lenFormat;
     char lemonFormat[1024];
@@ -75,6 +75,9 @@ private_ void lemon_action(
 private_ void lemon_formatWorkspace(
 	struct taskRunner *task,
 	void *);
+private_ void lemon_sendLemonbar(
+	struct taskRunner *task,
+	void * _lm_);
 
 #endif /*  __LEMON__ */
 
