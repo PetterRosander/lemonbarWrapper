@@ -23,7 +23,7 @@ _MAIN = main.o
 
 DEPS = \
        $(IDIR)/lemonCommunication.h \
-       $(IDIR)/workspace.h \
+       $(IDIR)/workspace.h 
 
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 MAIN = $(patsubst %,$(ODIR)/%,$(_MAIN))

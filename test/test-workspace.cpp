@@ -6,9 +6,6 @@
 
 #include <string.h>
 
-#include <string>
-#include <vector>
-
 #include "catch2/catch.hpp"
 #include "task-runner.h"
 #include "mock-symbol.hpp"
@@ -20,7 +17,7 @@ struct workspaceTest {
     struct workspace  *ws;
 };
 
-void setup(void **state)
+static void setup(void **state)
 {
     std::string path = "./path";
     struct workspaceTest *test = 
@@ -29,7 +26,7 @@ void setup(void **state)
     *state = test;
 }
 
-void teardown(void **state)
+static void teardown(void **state)
 {
     struct workspaceTest *test = (struct workspaceTest *)*state;
     workspace_destroy(test->ws);
