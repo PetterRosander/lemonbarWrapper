@@ -3,6 +3,7 @@
  *****************************************************************************/
 #define _XOPEN_SOURCE
 #define __WORKSPACE__
+#include "workspace.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,23 +16,29 @@
 #include <stdbool.h>
 
 #define NBR_JSMN_TOKENS 1024
-#define JSMN_STATIC
-#include "workspace.h"
 #include "task-runner.h"
-
 
 /******************************************************************************
  * inlined function declarations
  *****************************************************************************/
-static inline void formatMessage(enum I3_TYPE type, unsigned char *packet);
-static inline int jsoneq(const char *json, jsmntok_t *tok, const char *s);
+
+static inline void formatMessage(enum I3_TYPE, unsigned char *);
+static inline int jsoneq(const char *, jsmntok_t *, const char *);
 static inline void parseChangefocus(
-	jsmn_parser parser, jsmntok_t *token, 
-	int numberTokens, struct workspace *ws);
-static inline void parseChangeinit(jsmn_parser parser, jsmntok_t *token, 
-	int numberTokens, struct workspace *ws);
-static inline void parseChangeempty(jsmn_parser parser, jsmntok_t *token, 
-	int numberTokens, struct workspace *ws);
+	jsmn_parser, 
+	jsmntok_t *, 
+	int, 
+	struct workspace *);
+static inline void parseChangeinit(
+	jsmn_parser, 
+	jsmntok_t *, 
+	int, 
+	struct workspace *);
+static inline void parseChangeempty(
+	jsmn_parser, 
+	jsmntok_t *, 
+	int, 
+	struct workspace *);
 
 /******************************************************************************
  * exported functions declaration
@@ -44,6 +51,11 @@ struct workspace *workspace_init(char *i3path)
 {
 
     struct workspace *ws = calloc(1, sizeof(struct workspace)); 
+
+    if(ws == NULL){
+	return NULL;
+    }
+
     struct workspace_internal__
 	*internal = calloc(1, sizeof(struct workspace_internal__));
 
@@ -102,7 +114,7 @@ private_ void workspace_setupSocket(
 	struct taskRunner *task,
 	void *_ws_)
 {
-    struct workspace *ws = (struct workspace *)_ws_;
+    struct workspace *ws = _ws_;
     int i3Sock = SOCKET(PF_LOCAL, SOCK_STREAM, 0);
     ws->fd = i3Sock;
     if(i3Sock < 0){
@@ -134,7 +146,7 @@ private_ void workspace_subscribeWorkspace(
 	void *_ws_)
 {
 
-    struct workspace *ws = (struct workspace *)_ws_;
+    struct workspace *ws = _ws_;
     unsigned char subscribe[14];
     formatMessage(SUBSCRIBE, subscribe);
     if(WRITE(ws->fd, subscribe, sizeof(subscribe)) == 0){
@@ -178,7 +190,7 @@ private_ void workspace_startWorkspace(
 	struct taskRunner *task,
 	void *_ws_)
 {
-    struct workspace *ws = (struct workspace *)_ws_;
+    struct workspace *ws = _ws_;
     unsigned char request[14] = {0};
     
     formatMessage(COMMAND, request);
@@ -218,7 +230,7 @@ private_ void workspace_parseInitWorkspace(
 	struct taskRunner *task,
 	void *_ws_)
 {
-    struct workspace *ws = (struct workspace *)_ws_;
+    struct workspace *ws = _ws_;
     jsmn_parser parser;
     jsmntok_t token[NBR_JSMN_TOKENS];
 
@@ -279,7 +291,7 @@ private_ void workspace_eventWorkspace(
 	struct taskRunner *task, 
 	void * _ws_)
 {
-    struct workspace *ws = (struct workspace *)_ws_;
+    struct workspace *ws = _ws_;
     unsigned char event[14] = {0};
 
     int i = READ(ws->fd, &event[0], sizeof(event));
@@ -311,7 +323,7 @@ private_ void workspace_parseEvent(
 	struct taskRunner *task,
 	void *_ws_)
 {
-    struct workspace *ws = (struct workspace *)_ws_;
+    struct workspace *ws = _ws_;
     jsmn_parser parser;
     jsmntok_t token[NBR_JSMN_TOKENS];
 
@@ -370,8 +382,10 @@ private_ void workspace_parseEvent(
  * in the ws
  */
 static inline void parseChangefocus(
-	jsmn_parser parser, jsmntok_t *token, 
-	int numberTokens, struct workspace *ws)
+	jsmn_parser parser, 
+	jsmntok_t *token, 
+	int numberTokens, 
+	struct workspace *ws)
 {
     bool current = true;
     for(int i = 1; i < numberTokens; i++){
@@ -397,8 +411,11 @@ static inline void parseChangefocus(
  * been created fills in the information
  * in the ws
  */
-static inline void parseChangeinit(jsmn_parser parser, jsmntok_t *token, 
-	int numberTokens, struct workspace *ws)
+static inline void parseChangeinit(
+	jsmn_parser parser, 
+	jsmntok_t *token, 
+	int numberTokens, 
+	struct workspace *ws)
 {
     int num = 0;
     char name[128] = {0};
@@ -432,8 +449,11 @@ static inline void parseChangeinit(jsmn_parser parser, jsmntok_t *token,
  * been created fills in the information
  * in the ws
  */
-static inline void parseChangeempty(jsmn_parser parser, jsmntok_t *token, 
-	int numberTokens, struct workspace *ws)
+static inline void parseChangeempty(
+	jsmn_parser parser, 
+	jsmntok_t *token, 
+	int numberTokens, 
+	struct workspace *ws)
 {
     int num = 0;
     char name[128] = {0};

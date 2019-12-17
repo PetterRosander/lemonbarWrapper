@@ -50,6 +50,8 @@ int workspace_destroy(struct workspace *);
  * Internal struct for workspace
  *****************************************************************************/
 #ifdef __WORKSPACE__
+#undef __WORKSPACE__
+#define JSMN_STATIC
 #include "jsmn.h"
 #include <unistd.h>
 

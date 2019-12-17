@@ -12,14 +12,14 @@ CFLAGS = \
 	 -I$(JSMN)
 
 _OBJ = \
-      commChannel.o \
+      lemonCommunication.o \
       workspace.o \
       task-runner.o
 
 _MAIN = main.o
 
 DEPS = \
-       $(IDIR)/commChannel.h \
+       $(IDIR)/lemonCommunication.h \
        $(IDIR)/workspace.h \
 
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))

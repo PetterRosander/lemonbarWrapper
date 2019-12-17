@@ -1,4 +1,5 @@
 #if UNIT_TEST
+#include <sys/socket.h>
 ssize_t __mock_read(int fd, void *buf, size_t count);
 int __mock_socket(int domain, int type, int protocol);
 int __mock_write(int fd, const void *buf, size_t count);

@@ -1,20 +1,19 @@
 /******************************************************************************
  * PreProcessor directive
  *****************************************************************************/
+#define __WORKSPACE__
+#include "workspace.h"
+
+#include <string.h>
+
 #include <string>
 #include <vector>
 
 #include "catch2/catch.hpp"
-
-#define __WORKSPACE__
-#include "workspace.h"
 #include "task-runner.h"
-
 #include "mock-symbol.hpp"
-
 #include "workspace-data.h"
 
-#include <string.h>
 
 struct workspaceTest {
     struct taskRunner task;

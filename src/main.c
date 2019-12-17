@@ -2,14 +2,14 @@
 #include <unistd.h>
 #include <string.h>
 
-#include "commChannel.h"
+#include "lemonCommunication.h"
 #include "workspace.h"
+#include "task-runner.h"
 
 #define ERROR(error) \
     fprintf(stderr, "%s\n", error); \
     exit(EXIT_FAILURE);
 
-static void runLoop(struct workspace *ws, struct lemonbar *lm);
 
 int main(int argc, char *argv[])
 {
@@ -30,34 +30,13 @@ int main(int argc, char *argv[])
 	}
     }
 
-    struct lemonbar lm = {0};
-    if(initChannel(&lm) != 0){
-	perror("setting up bar");
-    }
+    struct workspace *ws = workspace_init(i3path);
+    ws->setup(ws);
 
-    
-    struct workspace *ws = NULL;
-    if(workspace_init(ws, i3path) != 0){
-	perror("subscribe error");
-    }
-    
-    //if(startWorkSpace(&ws) != 0){
-    //    perror("subscribe error");
-    //}
+    struct lemonbar *lm = lemon_init();
+    lm->setup(lm);
 
-    //jsonParseMessageCommand(&ws);
-    //
-    //if(formatLemonBar(&lm, ws) != 0){
-    //    perror("setting up bar");
-    //}
-
-    //if(sendlemonBar(lm)!= 0){
-    //    perror("send error ");
-    //}
-
-    //while(true){
-    //    runLoop(&ws, &lm);
-    //}
+    runLoop(ws, lm);
 
     return 0;
 }
