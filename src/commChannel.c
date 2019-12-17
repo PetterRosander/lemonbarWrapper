@@ -58,7 +58,7 @@ static void formatWorkspace(struct workspace ws, char *out)
 {
     int currLen = 0;
     currLen += sprintf(out, "%%{c}");
-    for(int i = 0; i < ws.numberws; i++){
+    for(int i = 0; i < NUMBER_WORKSPACES; i++){
 	if(ws.json[i].num == 0){
 	    continue;
 	}
@@ -71,13 +71,13 @@ static void formatWorkspace(struct workspace ws, char *out)
 	    currLen += sprintf(&out[0] + currLen, "%s | ", ws.json[i].name);
 	}
     }
-    if(ws.json[ws.numberws].focused == true){
+    if(ws.json[/*ws.numberws*/0].focused == true){
 	currLen += sprintf(
 		&out[0] + currLen, 
 		"%%{+o}%%{+u}%%{U#099}%s%%{U-}%%{-u}%%{-o}", 
-		ws.json[ws.numberws].name);
+		ws.json[/*ws.numberws*/0].name);
     } else {
-	currLen += sprintf(&out[0] + currLen, "%s", ws.json[ws.numberws].name);
+	currLen += sprintf(&out[0] + currLen, "%s", ws.json[/*ws.numberws*/0].name);
     }
 
 }

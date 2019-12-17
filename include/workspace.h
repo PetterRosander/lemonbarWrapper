@@ -18,13 +18,14 @@ extern "C" {
 struct workspace;
 typedef void (*_workspace_entryPoint_)(struct workspace *);
 typedef struct workspace_internal__ *workspace_internal;
-
+#define NUMBER_WORKSPACES 10
 /******************************************************************************
  * Structs
  *****************************************************************************/
 struct parsedJsonInformation 
 {
     bool focused;
+    bool active;
     char name[128];
     int num;
 };
@@ -33,8 +34,7 @@ struct workspace
 {
     int fd;
     char i3Path[100];
-    uint8_t numberws;
-    struct parsedJsonInformation json[10];
+    struct parsedJsonInformation json[NUMBER_WORKSPACES];
     _workspace_entryPoint_ event;
     _workspace_entryPoint_ setup;
     workspace_internal internal;
@@ -64,7 +64,8 @@ enum I3_TYPE {
 enum I3_EVENT {
     UNKNOWN = 0,
     INIT    = 1,
-    FOCUS   = 2
+    FOCUS   = 2,
+    EMPTY   = 3
 };
 
 struct workspace_internal__ {

@@ -134,9 +134,10 @@ TEST_CASE( "Unittest - Make sure we parse the current workspace state correctly"
     workspace_parseInitWorkspace(&test->task, test->ws);
 
     REQUIRE( test->task.nextTask == NULL );
-    REQUIRE( test->ws->numberws == 1);
     REQUIRE( test->ws->json[0].focused == true);
     REQUIRE( test->ws->json[1].focused == false);
+    REQUIRE( test->ws->json[0].active == true);
+    REQUIRE( test->ws->json[1].active == true);
     REQUIRE( test->ws->json[0].num == 1);
     REQUIRE( test->ws->json[1].num == 2);
     REQUIRE( strcmp(test->ws->json[0].name, "1") == 0);
@@ -166,6 +167,137 @@ TEST_CASE( "Unittest - Read a new event",
 
 
     REQUIRE( test->task.nextTask == workspace_parseEvent );
+
+    TEARDOWN((void **)&test, 0);
+}
+
+
+TEST_CASE( "Unittest - Make sure we parse a init of a new workspace correctly",  
+  	   "[Workspace]" )
+{
+    struct workspaceTest *test = NULL;
+    INIT_MOCK((void **)&test);
+
+    test->ws->fd = 10;
+    test->ws->json[0].focused = true;
+    test->ws->json[1].focused = false;
+    test->ws->json[0].active = true;
+    test->ws->json[1].active = true;
+    test->ws->json[0].num = 1;
+    test->ws->json[1].num = 2;
+    strcpy(test->ws->json[0].name, "1");
+    strcpy(test->ws->json[1].name, "2");
+
+
+    test->ws->internal->json = 
+	(char *)malloc(sizeof(INITWORKSPACE) * sizeof(char));
+
+    strcpy(test->ws->internal->json, INITWORKSPACE);
+    test->ws->internal->lenjson = sizeof(INITWORKSPACE);
+
+    workspace_parseEvent(&test->task, test->ws);
+
+    free(test->ws->internal->json);
+    REQUIRE( test->task.exitStatus == 0 );
+    REQUIRE( test->task.nextTask == NULL );
+    REQUIRE( test->ws->json[0].focused == false);
+    REQUIRE( test->ws->json[1].focused == false);
+    REQUIRE( test->ws->json[3].focused == true);
+    REQUIRE( test->ws->json[0].active == true);
+    REQUIRE( test->ws->json[1].active == true);
+    REQUIRE( test->ws->json[3].active == true);
+    REQUIRE( test->ws->json[0].num == 1);
+    REQUIRE( test->ws->json[1].num == 2);
+    REQUIRE( test->ws->json[3].num == 3);
+    REQUIRE( strcmp(test->ws->json[0].name, "1") == 0);
+    REQUIRE( strcmp(test->ws->json[1].name, "2") == 0);
+    REQUIRE( strcmp(test->ws->json[3].name, "4") == 0);
+
+    TEARDOWN((void **)&test, 0);
+}
+
+TEST_CASE( "Unittest - Make sure we clear a workspace correctly",  
+  	   "[Workspace]" )
+{
+    struct workspaceTest *test = NULL;
+    INIT_MOCK((void **)&test);
+
+    test->ws->fd = 10;
+    test->ws->json[0].focused = true;
+    test->ws->json[1].focused = false;
+    test->ws->json[3].focused = false;
+    test->ws->json[0].active = true;
+    test->ws->json[1].active = true;
+    test->ws->json[3].active = true;
+    test->ws->json[0].num = 1;
+    test->ws->json[1].num = 2;
+    test->ws->json[3].num = 4;
+    strcpy(test->ws->json[0].name, "1");
+    strcpy(test->ws->json[1].name, "2");
+    strcpy(test->ws->json[3].name, "4");
+
+
+    test->ws->internal->json = 
+	(char *)malloc(sizeof(EMPTYWORKSPACE) * sizeof(char));
+
+    strcpy(test->ws->internal->json, EMPTYWORKSPACE);
+    test->ws->internal->lenjson = sizeof(EMPTYWORKSPACE);
+
+    workspace_parseEvent(&test->task, test->ws);
+
+    free(test->ws->internal->json);
+    REQUIRE( test->task.exitStatus == 0 );
+    REQUIRE( test->task.nextTask == NULL );
+    REQUIRE( test->ws->json[0].focused == true);
+    REQUIRE( test->ws->json[1].focused == false);
+    REQUIRE( test->ws->json[3].focused == false);
+    REQUIRE( test->ws->json[0].active == true);
+    REQUIRE( test->ws->json[1].active == true);
+    REQUIRE( test->ws->json[3].active == false);
+    REQUIRE( test->ws->json[0].num == 1);
+    REQUIRE( test->ws->json[1].num == 2);
+    REQUIRE( test->ws->json[3].num == 3);
+    REQUIRE( strcmp(test->ws->json[0].name, "1") == 0);
+    REQUIRE( strcmp(test->ws->json[1].name, "2") == 0);
+    REQUIRE( strcmp(test->ws->json[3].name, "4") == 0);
+
+    TEARDOWN((void **)&test, 0);
+}
+
+TEST_CASE( "Unittest - Make sure we parse a change in the current workspace correctly",  
+  	   "[Workspace]" )
+{
+    struct workspaceTest *test = NULL;
+    INIT_MOCK((void **)&test);
+
+    test->ws->fd = 10;
+    test->ws->json[0].focused = true;
+    test->ws->json[1].focused = false;
+    test->ws->json[0].num = 1;
+    test->ws->json[1].num = 2;
+    strcpy(test->ws->json[0].name, "1");
+    strcpy(test->ws->json[1].name, "2");
+
+
+    test->ws->internal->json = 
+	(char *)malloc(sizeof(CHANGEFOCUS) * sizeof(char));
+
+    strcpy(test->ws->internal->json, CHANGEFOCUS);
+    test->ws->internal->lenjson = sizeof(CHANGEFOCUS);
+
+    workspace_parseEvent(&test->task, test->ws);
+
+    free(test->ws->internal->json);
+    REQUIRE( test->task.exitStatus == 0 );
+    REQUIRE( test->task.nextTask == NULL );
+    REQUIRE( test->ws->json[0].focused == false);
+    REQUIRE( test->ws->json[1].focused == true);
+    REQUIRE( test->ws->json[0].active == true);
+    REQUIRE( test->ws->json[1].active == true);
+    REQUIRE( test->ws->json[0].num == 1);
+    REQUIRE( test->ws->json[1].num == 2);
+    REQUIRE( strcmp(test->ws->json[0].name, "1") == 0);
+    REQUIRE( strcmp(test->ws->json[1].name, "2") == 0);
 
     TEARDOWN((void **)&test, 0);
 }

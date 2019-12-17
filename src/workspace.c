@@ -30,6 +30,8 @@ static inline void parseChangefocus(
 	int numberTokens, struct workspace *ws);
 static inline void parseChangeinit(jsmn_parser parser, jsmntok_t *token, 
 	int numberTokens, struct workspace *ws);
+static inline void parseChangeempty(jsmn_parser parser, jsmntok_t *token, 
+	int numberTokens, struct workspace *ws);
 
 /******************************************************************************
  * exported functions declaration
@@ -257,11 +259,11 @@ private_ void workspace_parseInitWorkspace(
 	    strncpy(value, ws->internal->json + token[i + 1].start, 
 		    token[i + 1].end - token[i + 1].start);
 	    ws->json[n].num = strtol(value, NULL, 10);
+	    ws->json[n].active = true;
 	    i++;
 	}
     }
 
-    ws->numberws = n;
     free(ws->internal->json);
     ws->internal->json = NULL;
     ws->internal->lenjson = 0;
@@ -316,8 +318,8 @@ private_ void workspace_parseEvent(
     jsmn_init(&parser);
 
     int numberTokens = jsmn_parse(&parser, ws->internal->json, 
-	    ws->internal->lenjson, token, 
-				  NBR_JSMN_TOKENS);
+	    ws->internal->lenjson, token, NBR_JSMN_TOKENS);
+    
 
     if(numberTokens < 1){
 	task->exitStatus = -1;
@@ -335,6 +337,11 @@ private_ void workspace_parseEvent(
        jsoneq(ws->internal->json, &token [2], "init") == 0){
 	event = INIT;
     }
+    
+    if(jsoneq(ws->internal->json, &token [1], "change") == 0 &&
+       jsoneq(ws->internal->json, &token [2], "empty") == 0){
+	event = EMPTY;
+    }
 
     switch(event){
 	case INIT:
@@ -343,6 +350,8 @@ private_ void workspace_parseEvent(
 	case FOCUS:
 	    parseChangefocus(parser, token, numberTokens, ws);
 	    break;
+	case EMPTY:
+	    parseChangeempty(parser, token, numberTokens, ws);
 	default:
 	    break;
     }
@@ -365,17 +374,18 @@ static inline void parseChangefocus(
 	int numberTokens, struct workspace *ws)
 {
     bool current = true;
-    for(int i = 0; i < numberTokens; i++){
-	if(token[i].type == JSMN_OBJECT && 
-	   jsoneq(ws->internal->json, &token[i - 1], "old") == 0){
-	    current = false;
-	}
+    for(int i = 1; i < numberTokens; i++){
+	 if(token[i].type == JSMN_OBJECT && 
+	    jsoneq(ws->internal->json, &token[i - 1], "old") == 0){
+	     current = false;
+	 }
 	if(jsoneq(ws->internal->json, &token[i], "num") == 0){
 	    char value[10] = {0};
 	    strncpy(value, ws->internal->json + token[i + 1].start, 
 		    token[i + 1].end - token[i + 1].start);
 	    int num = strtol(value, NULL, 10) - 1;
 	    ws->json[num].focused = current ? true: false;
+	    ws->json[num].active = true;
 	    i++;
 	} 
     }
@@ -392,13 +402,20 @@ static inline void parseChangeinit(jsmn_parser parser, jsmntok_t *token,
 {
     int num = 0;
     char name[128] = {0};
-    for(int i = 0; i < numberTokens; i++){
+
+    for(int i = 0; i < NUMBER_WORKSPACES; i++){
+	ws->json[i].focused = false;
+    }
+
+    for(int i = 1; i < numberTokens; i++){
 	if(jsoneq(ws->internal->json, &token[i], "num") == 0){
 	    char value[10] = {0};
 	    strncpy(value, ws->internal->json + token[i + 1].start, 
 		    token[i + 1].end - token[i + 1].start);
 	    num = strtol(value, NULL, 10) - 1;
 	    ws->json[num].focused = true;
+	    ws->json[num].num = num;
+	    ws->json[num].active = true;
 	    i++;
 	} else if(jsoneq(ws->internal->json, &token[i], "name") == 0){
 	    strncpy(name, ws->internal->json + token[i + 1].start, 
@@ -407,8 +424,39 @@ static inline void parseChangeinit(jsmn_parser parser, jsmntok_t *token,
 	} 
     }
     strcpy(ws->json[num].name, name);
-    ws->numberws = num;
 }
+
+/*
+ * Parses the json when reciving 
+ * a init that a new workspace has 
+ * been created fills in the information
+ * in the ws
+ */
+static inline void parseChangeempty(jsmn_parser parser, jsmntok_t *token, 
+	int numberTokens, struct workspace *ws)
+{
+    int num = 0;
+    char name[128] = {0};
+
+    for(int i = 1; i < numberTokens; i++){
+	if(jsoneq(ws->internal->json, &token[i], "num") == 0){
+	    char value[10] = {0};
+	    strncpy(value, ws->internal->json + token[i + 1].start, 
+		    token[i + 1].end - token[i + 1].start);
+	    num = strtol(value, NULL, 10) - 1;
+	    ws->json[num].focused = false;
+	    ws->json[num].num = num;
+	    ws->json[num].active = false;
+	    i++;
+	} else if(jsoneq(ws->internal->json, &token[i], "name") == 0){
+	    strncpy(name, ws->internal->json + token[i + 1].start, 
+		    token[i + 1].end - token[i + 1].start);
+	    i++;
+	} 
+    }
+    strcpy(ws->json[num].name, name);
+}
+
 /*
  * Defines what to be sent to i3 
  * subscription or command

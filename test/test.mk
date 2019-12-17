@@ -3,11 +3,11 @@ TDIR=test
 
 COMMON_TEST_FLAGS = \
 		    -g \
-		    -fno-omit-frame-pointer \
-		    -fsanitize=address \
 		    -pedantic \
 		    -Werror \
-		    -DUNIT_TEST
+		    -DUNIT_TEST \
+		    -fno-omit-frame-pointer \
+		    -fsanitize=address 
 
 CFLAGS_TEST = \
 	      -I$(IDIR) \
