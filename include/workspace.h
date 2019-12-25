@@ -11,6 +11,7 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 #include "task-runner.h"
+#define NUMBER_WORKSPACES 10
 
 /******************************************************************************
  * Declarations
@@ -18,7 +19,7 @@ extern "C" {
 struct workspace;
 typedef void (*_workspace_entryPoint_)(struct workspace *);
 typedef struct workspace_internal__ *workspace_internal;
-#define NUMBER_WORKSPACES 10
+
 /******************************************************************************
  * Structs
  *****************************************************************************/
@@ -50,8 +51,7 @@ int workspace_destroy(struct workspace *);
  * Internal struct for workspace
  *****************************************************************************/
 #ifdef __WORKSPACE__
-#undef __WORKSPACE__
-#define JSMN_STATIC
+#define JSMN_HEADER
 #include "jsmn.h"
 #include <unistd.h>
 
@@ -103,8 +103,8 @@ private_ void workspace_parseInitWorkspace(
 	struct taskRunner *,
 	void *);
 private_ void workspace_parseEvent(
-	struct taskRunner *task,
-	void *_ws_);
+	struct taskRunner *,
+	void *);
 
 #endif /* __WORKSPACE__ */
 

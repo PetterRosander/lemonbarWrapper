@@ -1,0 +1,74 @@
+#ifndef _CONFIGURATION_MANGER_H_
+#define _CONFIGURATION_MANGER_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+/******************************************************************************
+ * PreProcessor directives
+ *****************************************************************************/
+#include <wchar.h>
+
+// ALE-LINTER is wierd here...
+#include "../3rd-party/hashmap/hashmap.h"
+#define NCONFIG_PARAM 10
+
+/******************************************************************************
+ * Declarations
+ *****************************************************************************/
+struct configuration;
+typedef void (*_config_entryPoint_)(struct configuration *);
+
+/******************************************************************************
+ * Structs
+ *****************************************************************************/
+
+
+struct moduleConfig {
+    map_t configMap;
+    char key[NCONFIG_PARAM][256];
+    char value[NCONFIG_PARAM][256];
+};
+
+struct configuration {
+    int eventFd;
+    char configPath[100];
+    struct moduleConfig mcfg;
+    _config_entryPoint_ setup;
+    _config_entryPoint_ event;
+};
+
+/******************************************************************************
+ * Exported function
+ *****************************************************************************/
+struct configuration *config_init(const char*path);
+int config_destory(struct configuration*);
+
+#if UNIT_TEST
+#define private_
+#else
+#define private_ static
+#endif
+
+#ifdef __CONFIGURATION__
+#include "task-runner.h"
+private_ void config_setup(struct configuration *);
+private_ void config_event(struct configuration *);
+
+private_ void config_handleEvents(
+	struct taskRunner *,
+	void *);
+private_ void config_addWatcher(
+	struct taskRunner *,
+	void *);
+private_ void config_readConfiguration(
+	struct taskRunner *,
+	void *);
+
+#endif /*__CONFIGURATION__ */
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+
+#endif /* _CONFIGURATION_MANGER_H_ */

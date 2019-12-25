@@ -373,6 +373,8 @@ private_ void workspace_parseEvent(
 	    break;
     }
 
+    free(ws->internal->json);
+    ws->internal->json = NULL;
     task->exitStatus = 0;
     task->nextTask   = NULL;
 

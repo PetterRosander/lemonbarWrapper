@@ -1,34 +1,55 @@
+/******************************************************************************
+ * PreProcessor directive
+ *****************************************************************************/
 #include <stdlib.h>
 #include <poll.h>
+#include <string.h>
 
 #include "task-runner.h"
+#include "plugins.h"
 #include "lemonCommunication.h"
 #include "workspace.h"
 
 #define MILLI 1000
 
-void runLoop(struct workspace *ws, struct lemonbar *lm)
+extern bool main_exitRequested(void);
+
+void runLoop(
+	struct workspace *ws, 
+	struct plugins *pl,
+	struct configuration *cfg,
+	struct lemonbar *lm)
 {
     struct pollfd fds[10];
-    nfds_t nfds = 1;
+    nfds_t nfds = 2;
     fds[0].fd = ws->fd;
     fds[0].events = POLLIN;
-    fds[1].fd = lm->pipeRead;
+    fds[1].fd = cfg->eventFd;
     fds[1].events = POLLIN;
+    fds[2].fd = lm->pipeRead;
+    fds[2].events = POLLIN;
 
-    bool run = true;
 
     do {
 	int read = poll(fds, nfds, 10*MILLI);
+	pl->normal(pl);
+
 
 	if(read > 0){
 	    if((fds[0].revents & POLLIN) == POLLIN){
 		ws->event(ws);
-		lm->ws = ws;
-		lm->com(lm);
+	    }
+	    if((fds[1].revents & POLLIN) == POLLIN){
+		cfg->event(cfg);
+		lm->reconfigure(lm);
+	    }
+	    if((fds[2].revents & POLLIN) == POLLIN){
+		// NOT IMPLEMENTED YET
 	    }
 	}
-    } while(run);
+
+	lm->render(lm);
+    } while(!main_exitRequested());
 
 }
 

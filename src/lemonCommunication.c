@@ -1,7 +1,7 @@
 /******************************************************************************
  * PreProcessor directive
  *****************************************************************************/
-#define _XOPEN_SOURCE
+#define _XOPEN_SOURCE 
 #define __LEMON__
 #include "lemonCommunication.h"
 
@@ -9,13 +9,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 #include "system-calls.h"
 
 #include "task-runner.h"
 #include "workspace.h"
 
-#define LEMONBAR "lemonbar -u 2"
+#define LEMONBAR "lemonbar"
 
 #define PIPE_READ 0
 #define PIPE_WRITE 1
@@ -35,7 +36,7 @@ static inline pid_t popen2(
  * Setup function used to access
  * the functionallity in this module
  */
-struct lemonbar *lemon_init(void)
+struct lemonbar *lemon_init(struct configuration *cfg)
 {
     struct lemonbar *lm = calloc(1, sizeof(struct lemonbar));
 
@@ -51,14 +52,23 @@ struct lemonbar *lemon_init(void)
 	return NULL;
     }
 
+    char *value = NULL;
+    hashmap_get(cfg->mcfg.configMap, "LEMON_ARGS", (void**)(&value));
+    lm->lmcfg.lemonArgs = value;
+
     lm->internal = internal;
 
     lm->setup = lemon_setup;
-    lm->com   = lemon_com;
+    lm->render = lemon_reRender;
+    lm->reconfigure = lemon_reconfigure;
 
     return lm;
 }
 
+/*
+ * Clears memory associated with the
+ * lemon struct
+ */
 int lemon_destroy(struct lemonbar *lm)
 {
     free(lm->internal);
@@ -78,9 +88,16 @@ private_ void lemon_setup(struct lemonbar *lm){
     taskRunner_runTask(task);
 }
 
-private_ void lemon_com(struct lemonbar *lm){
+private_ void lemon_reRender(struct lemonbar *lm){
     struct taskRunner task = {0};
-    task.nextTask = lemon_action;
+    task.nextTask = lemon_formatWorkspace;
+    task.arg = lm;
+    taskRunner_runTask(task);
+}
+
+private_ void lemon_reconfigure(struct lemonbar *lm){
+    struct taskRunner task = {0};
+    task.nextTask = lemon_teardownCommunication;
     task.arg = lm;
     taskRunner_runTask(task);
 }
@@ -94,7 +111,9 @@ private_ void lemon_setupCommunication(
 	void *_lm_)
 {
     struct lemonbar *lm = _lm_;
-    lm->internal->pid = popen2(LEMONBAR, &lm->internal->pipeWrite,
+    char lemonbar[1024] = {0};
+    sprintf(lemonbar, "%s %s", LEMONBAR, lm->lmcfg.lemonArgs);
+    lm->internal->pid = popen2(lemonbar, &lm->internal->pipeWrite,
 	    &lm->pipeRead);
 
     if(lm->internal->pid < 0) {
@@ -102,29 +121,23 @@ private_ void lemon_setupCommunication(
 	task->nextTask   = NULL;
 	return;
     }
-    lm->action = WORKSPACE;
     task->exitStatus = 0;
-    task->nextTask = lemon_action;
+    task->nextTask = lemon_formatWorkspace;
 }
 
-
-private_ void lemon_action(
+private_ void lemon_teardownCommunication(
 	struct taskRunner *task,
 	void *_lm_)
 {
     struct lemonbar *lm = _lm_;
-    switch(lm->action){
-	case WORKSPACE:
-	    task->nextTask   = lemon_formatWorkspace;
-	    task->exitStatus = 0;
-	    break;
-	default:
-	    task->nextTask = NULL;
-	    task->exitStatus = -1;
-	    break;
-    }
+    close(lm->internal->pipeWrite);
+    close(lm->pipeRead);
+    int ret = system("pkill lemonbar");
+    int status = 0;
+    waitpid(ret, &status, 0);
+    task->exitStatus = 0;
+    task->nextTask = lemon_setupCommunication;
 }
-
 
 private_ void lemon_formatWorkspace(
 	struct taskRunner *task,
@@ -142,7 +155,7 @@ private_ void lemon_formatWorkspace(
 	if(ws->json[i].focused == true){
 	    currLen += sprintf(
 		    &lm->internal->lemonFormat[0] + currLen, 
-		    "%%{+o}%%{+u}%%{U#099}%s%%{U-}%%{-u}%%{-o} | ", 
+		    "%%{+u}%%{U#0FF} %s %%{U-}%%{-u} | ", 
 		    ws->json[i].name);
 	} else if (i != NUMBER_WORKSPACES - 1) {
 	    currLen += 
@@ -153,6 +166,20 @@ private_ void lemon_formatWorkspace(
     sprintf(&lm->internal->lemonFormat[0] + currLen - 3, "\n");
     currLen -= 2;
     lm->internal->lenFormat = currLen;
+    task->exitStatus = 0;
+    task->nextTask   = lemon_formatNormal;
+}
+
+private_ void lemon_formatNormal(
+	struct taskRunner *task,
+	void *_lm_)
+{
+    struct lemonbar *lm = _lm_;
+    struct plugins *pl = lm->pl;
+
+    lm->internal->lenFormat += sprintf(
+	    &lm->internal->lemonFormat[lm->internal->lenFormat - 1], 
+	    "%%{r}%s", pl->pluginsFormatted);
     task->exitStatus = 0;
     task->nextTask   = lemon_sendLemonbar;
 }
@@ -170,6 +197,9 @@ private_ void lemon_sendLemonbar(
 	task->nextTask   = NULL;
 	return;
     }
+    sentBytes = WRITE(lm->internal->pipeWrite, "\n", 1);
+    (void)sentBytes;
+
     task->exitStatus = 0;
     task->nextTask = NULL;
 }
@@ -222,25 +252,3 @@ static inline pid_t popen2(
 
     return pid;
 }
-
-#if 0
-int formatLemonBar(struct lemonbar *lm, struct workspace ws)
-{
-    char out[1024] = {0};
-
-    formatWorkspace(ws, out);
-    lm->lenFormat = strlen(out) + 1;
-    lm->lemonFormat = calloc(sizeof(char), lm->lenFormat);
-
-    if(lm->lemonFormat == NULL){
-	return -1;
-    }
-
-    char *ptr = strncpy(lm->lemonFormat, out, lm->lenFormat);
-    if(ptr == NULL){
-	return -2;
-    }
-
-    return 0;
-}
-#endif

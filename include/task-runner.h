@@ -6,6 +6,8 @@ extern "C" {
 
 #include "lemonCommunication.h"
 #include "workspace.h"
+#include "configuration-manager.h"
+#include "plugins.h"
 
 struct taskRunner;
 typedef void (*next)(struct taskRunner *, void *);
@@ -17,8 +19,12 @@ struct taskRunner {
     char function[100];
 };
 
-int taskRunner_runTask(struct taskRunner task);
-void runLoop(struct workspace *ws, struct lemonbar *lm);
+int taskRunner_runTask(struct taskRunner);
+void runLoop(
+	struct workspace *, 
+	struct plugins *,
+	struct configuration *cfg,
+	struct lemonbar *);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

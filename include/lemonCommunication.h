@@ -9,6 +9,7 @@ extern "C" {
  *****************************************************************************/
 #include <stdio.h>
 #include <sys/types.h>
+#include "configuration-manager.h"
 
 /******************************************************************************
  * Declarations
@@ -20,33 +21,36 @@ typedef struct lemon_internal__ *lemon_internal;
 /******************************************************************************
  * Structs
  *****************************************************************************/
-enum lemonAction {
-    WORKSPACE = 0
+struct lemonConfig {
+    char const *lemonArgs;
 };
 
 struct lemonbar
 {
     int pipeRead;
     struct workspace *ws;
-    enum lemonAction action;
+    struct plugins *pl;
+
+    struct lemonConfig lmcfg;
     _lemonbar_entryPoint_ setup;
-    _lemonbar_entryPoint_ com;
+    _lemonbar_entryPoint_ render;
+    _lemonbar_entryPoint_ reconfigure;
     lemon_internal internal;
 };
 
 /******************************************************************************
  * Exported function
  *****************************************************************************/
-struct lemonbar *lemon_init(void);
-int lemon_destroy(struct lemonbar *lm);
+struct lemonbar *lemon_init(struct configuration *cfg);
+int lemon_destroy(struct lemonbar *);
 
 /******************************************************************************
  * Internal struct for workspace
  *****************************************************************************/
 #ifdef __LEMON__
-#undef __LEMON__
 #include "task-runner.h"
 #include "workspace.h"
+#include "plugins.h"
 
 /******************************************************************************
  * enum internal to workspace
@@ -58,6 +62,9 @@ struct lemon_internal__ {
     char lemonFormat[1024];
 };
 
+/******************************************************************************
+ * Local function declarations
+ *****************************************************************************/
 #if UNIT_TEST
 #define private_
 #else 
@@ -65,19 +72,23 @@ struct lemon_internal__ {
 #endif
 
 private_ void lemon_setup(struct lemonbar *);
-private_ void lemon_com(struct lemonbar *lm);
+private_ void lemon_reRender(struct lemonbar *);
+private_ void lemon_reconfigure(struct lemonbar *);
 private_ void lemon_setupCommunication(
 	struct taskRunner *,
 	void *);
-private_ void lemon_action(
+private_ void lemon_teardownCommunication(
 	struct taskRunner *,
 	void *);
 private_ void lemon_formatWorkspace(
-	struct taskRunner *task,
+	struct taskRunner *,
 	void *);
 private_ void lemon_sendLemonbar(
+	struct taskRunner *,
+	void * );
+private_ void lemon_formatNormal(
 	struct taskRunner *task,
-	void * _lm_);
+	void *_lm_);
 
 #endif /*  __LEMON__ */
 
