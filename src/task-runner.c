@@ -24,6 +24,7 @@ void runLoop(
     nfds_t nfds = 2;
     fds[0].fd = ws->fd;
     fds[0].events = POLLIN;
+    fds[0].events |= POLLHUP;
     fds[1].fd = cfg->eventFd;
     fds[1].events = POLLIN;
     fds[2].fd = lm->pipeRead;
@@ -38,6 +39,13 @@ void runLoop(
 	if(read > 0){
 	    if((fds[0].revents & POLLIN) == POLLIN){
 		ws->event(ws);
+	    }
+	    if((fds[0].revents & POLLHUP) == POLLHUP){
+		printf("i3 reloaded\n");
+		// Possible reload of i3 - this will restart
+		// lemonwrapper and we will end up with two
+		// bars and poll endlessly returning with no timeout
+		exit(0);
 	    }
 	    if((fds[1].revents & POLLIN) == POLLIN){
 		cfg->event(cfg);

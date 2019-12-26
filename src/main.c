@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 {
 
     int opt;
-    char i3path[128] = {0};
+    char *i3path = NULL;
     char config[128] = {0};
     
 
@@ -45,10 +45,10 @@ int main(int argc, char *argv[])
     strcat(config, DEFAULT_CONFIG);
 
     // TODO: Add long opts (see manual getopt)
-    while((opt = getopt(argc, argv, "p:")) != -1) {
+    while((opt = getopt(argc, argv, "h:")) != -1) {
 	switch(opt){
-	case 'p':
-	    strcpy(i3path, optarg);
+	case 'h':
+	    printf("TODO: help\n");
 	    break;
 	default:
 	    printf("Unknown option"); 
@@ -56,6 +56,8 @@ int main(int argc, char *argv[])
 	}
     }
 
+
+    i3path = getenv("I3SOCK");
 
     signal(SIGCHLD, signalHandler);
     signal(SIGINT, signalHandler);
