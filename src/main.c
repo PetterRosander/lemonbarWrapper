@@ -36,12 +36,14 @@ int main(int argc, char *argv[])
 {
 
     int opt;
-    char _i3path[126] = {0};
+    char i3path[126] = {0};
     char config[128] = {0};
     
 
-    char *i3path = getenv("I3SOCK");
     char *home = getenv("HOME");
+    char *_i3path = getenv("I3SOCK");
+    strcpy(i3path, _i3path);
+
     memcpy(config, home, strlen(home));
     strcat(config, DEFAULT_CONFIG);
 
@@ -52,8 +54,7 @@ int main(int argc, char *argv[])
 	    printf("TODO: help\n");
 	    break;
 	case 'p':
-	    strcpy(_i3path, optarg);
-	    i3path = _i3path;
+	    strcpy(i3path, optarg);
 	default:
 	    printf("Unknown option"); 
 	    break;
