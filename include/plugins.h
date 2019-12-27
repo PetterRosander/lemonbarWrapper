@@ -38,6 +38,12 @@ struct pluginConfig {
     wchar_t wifiSymbol;
     wchar_t batteryNormal;
     wchar_t batteryCharging;
+
+    char *_wifiSymbol;
+    char *_batteryNormal;
+    char *_batteryCharging;
+    char *_warnPercent;
+
     bool notifyWarn[MAX_BATTERY_WARN];
     uint8_t warnPercent[MAX_BATTERY_WARN];
 };
@@ -50,7 +56,13 @@ struct plugins {
     char pluginsFormatted[160];
     uint8_t pluginsLen;
     struct pluginConfig plcfg;
+
+    int pluginsFd;
+    bool shutdownOrLock;
+
     _plugins_entryPoint_ setup;
+    _plugins_entryPoint_ reconfigure;
+    _plugins_entryPoint_ event;
     _plugins_entryPoint_ normal;
 };
 
@@ -72,8 +84,19 @@ int plug_destroy(struct plugins*);
 #ifdef __PLUGINS__
 #include "task-runner.h"
 private_ void plug_setup(struct plugins *);
-private_ void plug_runNormal(struct plugins *pl);
+private_ void plug_reconfigure(struct plugins *);
+private_ void plug_runNormal(struct plugins *);
+private_ void plug_runEvent(struct plugins *);
 
+private_ void plug_lockOrShutdown(
+	struct taskRunner *,
+	void *);
+private_ void plug_setupPipe(
+	struct taskRunner *,
+	void *);
+private_ void plug_configure(
+	struct taskRunner *,
+	void *);
 private_ void plug_startUserPlugins(
 	struct taskRunner *,
 	void *);

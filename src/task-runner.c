@@ -5,6 +5,8 @@
 #include <poll.h>
 #include <string.h>
 
+#include <unistd.h>
+
 #include "task-runner.h"
 #include "plugins.h"
 #include "lemonCommunication.h"
@@ -21,7 +23,8 @@ void runLoop(
 	struct lemonbar *lm)
 {
     struct pollfd fds[10];
-    nfds_t nfds = 2;
+    bool i3Restart = false;
+    nfds_t nfds = 4;
     fds[0].fd = ws->fd;
     fds[0].events = POLLIN;
     fds[0].events |= POLLHUP;
@@ -29,35 +32,42 @@ void runLoop(
     fds[1].events = POLLIN;
     fds[2].fd = lm->pipeRead;
     fds[2].events = POLLIN;
+    fds[3].fd = pl->pluginsFd;
+    fds[3].events = POLLIN;
 
 
     do {
-	int read = poll(fds, nfds, 10*MILLI);
-	pl->normal(pl);
+	int readyfds = poll(fds, nfds, 10*MILLI);
 
 
-	if(read > 0){
+	if(readyfds > 0){
 	    if((fds[0].revents & POLLIN) == POLLIN){
 		ws->event(ws);
 	    }
 	    if((fds[0].revents & POLLHUP) == POLLHUP){
-		printf("i3 reloaded\n");
 		// Possible reload of i3 - this will restart
 		// lemonwrapper and we will end up with two
 		// bars and poll endlessly returning with no timeout
-		exit(0);
+		i3Restart = true;
 	    }
 	    if((fds[1].revents & POLLIN) == POLLIN){
 		cfg->event(cfg);
+		pl->reconfigure(pl);
 		lm->reconfigure(lm);
 	    }
 	    if((fds[2].revents & POLLIN) == POLLIN){
-		// NOT IMPLEMENTED YET
+		lm->action(lm);
+		pl->shutdownOrLock = false;
+	    }
+	    if((fds[3].revents & POLLIN) == POLLIN){
+		pl->event(pl);
 	    }
 	}
 
+	pl->normal(pl);
 	lm->render(lm);
-    } while(!main_exitRequested());
+
+    } while(!main_exitRequested() && !i3Restart);
 
 }
 

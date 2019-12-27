@@ -35,6 +35,7 @@ struct lemonbar
     _lemonbar_entryPoint_ setup;
     _lemonbar_entryPoint_ render;
     _lemonbar_entryPoint_ reconfigure;
+    _lemonbar_entryPoint_ action;
     lemon_internal internal;
 };
 
@@ -74,6 +75,14 @@ struct lemon_internal__ {
 private_ void lemon_setup(struct lemonbar *);
 private_ void lemon_reRender(struct lemonbar *);
 private_ void lemon_reconfigure(struct lemonbar *);
+private_ void lemon_action(struct lemonbar *);
+
+private_ void lemon_pluginAction(
+	struct taskRunner *,
+	void *);
+private_ void lemon_lockOrShutdown(
+	struct taskRunner *,
+	void * );
 private_ void lemon_setupCommunication(
 	struct taskRunner *,
 	void *);

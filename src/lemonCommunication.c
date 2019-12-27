@@ -61,6 +61,7 @@ struct lemonbar *lemon_init(struct configuration *cfg)
     lm->setup = lemon_setup;
     lm->render = lemon_reRender;
     lm->reconfigure = lemon_reconfigure;
+    lm->action = lemon_action;
 
     return lm;
 }
@@ -90,8 +91,13 @@ private_ void lemon_setup(struct lemonbar *lm){
 
 private_ void lemon_reRender(struct lemonbar *lm){
     struct taskRunner task = {0};
-    task.nextTask = lemon_formatWorkspace;
     task.arg = lm;
+    if(lm->pl->shutdownOrLock){
+	task.nextTask = lemon_lockOrShutdown;
+    } else {
+	task.nextTask = lemon_formatWorkspace;
+    }
+	
     taskRunner_runTask(task);
 }
 
@@ -102,10 +108,32 @@ private_ void lemon_reconfigure(struct lemonbar *lm){
     taskRunner_runTask(task);
 }
 
+private_ void lemon_action(struct lemonbar *lm){
+    struct taskRunner task = {0};
+    task.nextTask = lemon_pluginAction;
+    task.arg = lm;
+    taskRunner_runTask(task);
+}
+
 
 /******************************************************************************
  * Local function declarations
  *****************************************************************************/
+private_ void lemon_pluginAction(
+	struct taskRunner *task,
+	void *_lm_)
+{
+    struct lemonbar *lm = _lm_;
+    char action[100] = {0};
+    int r = read(lm->pipeRead, action, sizeof(action));
+    (void)r;
+    int i = system(strtok(action, "\n"));
+    (void)i;
+    task->exitStatus = 0;
+    task->nextTask = NULL;
+}
+
+
 private_ void lemon_setupCommunication(
 	struct taskRunner *task,
 	void *_lm_)
@@ -184,6 +212,21 @@ private_ void lemon_formatNormal(
     task->nextTask   = lemon_sendLemonbar;
 }
 
+private_ void lemon_lockOrShutdown(
+	struct taskRunner *task,
+	void * _lm_)
+{
+
+    struct lemonbar *lm = _lm_;
+    lm->internal->lenFormat = 0;
+    lm->internal->lenFormat = 
+	sprintf(lm->internal->lemonFormat, "%%{c}%%{A:i3lock-fancy:}\uf023%%{A}"
+	       	" | %%{A:i3-msg exit:}\uf29d%%{A}"
+	       	" | %%{A:shutdown -h now:}\uf011%%{A}"
+		"%%{r}%%{A:x:}x%%{A}");
+    task->exitStatus = 0;
+    task->nextTask   = lemon_sendLemonbar;
+}
 
 private_ void lemon_sendLemonbar(
 	struct taskRunner *task,
