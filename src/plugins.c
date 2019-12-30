@@ -187,7 +187,7 @@ private_ void plug_getBattery(
 
 
     fBat = fopen(FBATTERY_STATUS, "r");
-    char tmpStatus[100] = {0};
+    char tmpStatus[512] = {0};
     i = fscanf(fBat, "%s", tmpStatus);
     fclose(fBat);
     
@@ -257,7 +257,7 @@ private_ void plug_getWifi(
 {
     struct plugins *pl = _pl_;
     FILE *fWifi = fopen(FWIFI_LINK, "r");
-    char ignore[128];
+    char ignore[512];
     char *ptr = fgets(ignore, sizeof(ignore), fWifi);
     ptr = fgets(ignore, sizeof(ignore), fWifi);
     int i = fscanf(fWifi, "%s %s %hhu %s", ignore, ignore, &pl->wf.link, ignore);

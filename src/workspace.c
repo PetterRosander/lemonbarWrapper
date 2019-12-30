@@ -79,6 +79,10 @@ struct workspace *workspace_init(char *i3path)
  */
 int workspace_destroy(struct workspace *ws)
 {
+    if(ws->internal->json != NULL){
+	free(ws->internal->json);
+	ws->internal->json = NULL;
+    }
     free(ws->internal);
     ws->internal = NULL;
 

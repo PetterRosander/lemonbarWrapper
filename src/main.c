@@ -55,6 +55,7 @@ int main(int argc, char *argv[])
 	    break;
 	case 'p':
 	    strcpy(i3path, optarg);
+	    break;
 	default:
 	    printf("Unknown option"); 
 	    break;
@@ -66,7 +67,10 @@ int main(int argc, char *argv[])
     signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
 
-    setlocale(LC_ALL, "");
+    if(setlocale(LC_ALL, "C.UTF-8") == NULL){
+        printf("Falied to set locale\n");
+        return 198;
+    }
 
     struct configuration * cfg = config_init(config);
     cfg->setup(cfg);
