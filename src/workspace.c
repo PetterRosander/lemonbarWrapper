@@ -67,6 +67,7 @@ struct workspace *workspace_init(char *i3path)
     }
 
     ws->setup = workspace_setup;
+    ws->reconnect = workspace_reconnect;
     ws->event = workspace_entryPoint;
     strcpy(ws->i3path, i3path);
 
@@ -96,6 +97,16 @@ int workspace_destroy(struct workspace *ws)
  *****************************************************************************/
 private_ void workspace_setup(struct workspace *ws)
 {
+    struct taskRunner task = {0};
+    task.nextTask = workspace_setupSocket;
+    task.arg = ws;
+    taskRunner_runTask(task);
+}
+
+private_ void workspace_reconnect(struct workspace *ws)
+{
+    close(ws->fd);
+    ws->internal->reconnect = true;
     struct taskRunner task = {0};
     task.nextTask = workspace_setupSocket;
     task.arg = ws;
@@ -186,7 +197,12 @@ private_ void workspace_subscribeWorkspace(
 	return;
     }
    
-    task->nextTask = workspace_startWorkspace;
+    if(ws->internal->reconnect){
+	task->nextTask = NULL;
+    } else {
+	task->nextTask = workspace_startWorkspace;
+    }
+
     task->exitStatus = 0;
 }
 

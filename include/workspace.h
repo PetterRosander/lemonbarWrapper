@@ -36,7 +36,9 @@ struct workspace
     int fd;
     char i3path[100];
     struct parsedJsonInformation json[NUMBER_WORKSPACES];
+
     _workspace_entryPoint_ event;
+    _workspace_entryPoint_ reconnect;
     _workspace_entryPoint_ setup;
     workspace_internal internal;
 };
@@ -71,6 +73,7 @@ enum I3_EVENT {
 };
 
 struct workspace_internal__ {
+    bool reconnect;
     char *json;
     size_t lenjson;
 };
@@ -87,6 +90,8 @@ struct workspace_internal__ {
 
 private_ void workspace_setup(struct workspace *);
 private_ void workspace_entryPoint(struct workspace *);
+private_ void workspace_reconnect(struct workspace *);
+
 private_ void workspace_setupSocket(
 	struct taskRunner *, 
 	void *);

@@ -15,19 +15,9 @@
 
 #include "task-runner.h"
 #include "workspace.h"
+#include "sys-utils.h"
 
 #define LEMONBAR "lemonbar"
-
-#define PIPE_READ 0
-#define PIPE_WRITE 1
-
-/******************************************************************************
- * inlined function declarations
- *****************************************************************************/
-static inline pid_t popen2(
-	const char *,
-	int *,
-	int *);
 
 /******************************************************************************
  * exported functions declaration
@@ -158,11 +148,10 @@ private_ void lemon_teardownCommunication(
 	void *_lm_)
 {
     struct lemonbar *lm = _lm_;
+    int ret = pkill("lemonbar");
     close(lm->internal->pipeWrite);
     close(lm->pipeRead);
-    int ret = system("pkill lemonbar");
-    int status = 0;
-    waitpid(ret, &status, 0);
+    (void) ret;
     task->exitStatus = 0;
     task->nextTask = lemon_setupCommunication;
 }
@@ -245,53 +234,4 @@ private_ void lemon_sendLemonbar(
 
     task->exitStatus = 0;
     task->nextTask = NULL;
-}
-
-/******************************************************************************
- * Inlined small functions (should only be used once)
- *****************************************************************************/
-/*
- * Since popen does not support bidirectional
- * communication we write our own popen 
- */
-static inline pid_t popen2(
-	const char *command,
-	int *infp,
-	int *outfp)
-{
-    int p_stdin[2], p_stdout[2];
-
-    pid_t pid;
-
-    if (pipe(p_stdin) != 0 || pipe(p_stdout) != 0){
-	return -1;
-    }
-
-    pid = fork();
-
-    if (pid < 0){
-	return pid;
-    } else if (pid == 0){
-	close(p_stdin[PIPE_WRITE]);
-	dup2(p_stdin[PIPE_READ], PIPE_READ);
-	close(p_stdout[PIPE_READ]);
-	dup2(p_stdout[PIPE_WRITE], PIPE_WRITE);
-	execl("/bin/sh", "sh", "-c", command, NULL);
-	perror("execl");
-	exit(1);
-    }
-
-    if (infp == NULL){
-	close(p_stdin[PIPE_WRITE]);
-    } else{
-	*infp = p_stdin[PIPE_WRITE];
-    }
-
-    if (outfp == NULL){
-	close(p_stdout[PIPE_READ]);
-    } else {
-	*outfp = p_stdout[PIPE_READ];
-    }
-
-    return pid;
 }

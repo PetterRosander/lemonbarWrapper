@@ -10,6 +10,7 @@
 #include "configuration-manager.h"
 #include "lemonCommunication.h"
 #include "workspace.h"
+#include "sys-utils.h"
 
 #define DEFAULT_CONFIG "/.config/lemonwrapper/lemon.config"
 
@@ -38,6 +39,13 @@ int main(int argc, char *argv[])
     int opt;
     char i3path[126] = {0};
     char config[128] = {0};
+
+    pid_t pid = pidof(argv[0]);
+    pid_t me = getpid();
+
+    if(pid != me){
+	return 0;
+    }
     
 
     char *home = getenv("HOME");
@@ -48,13 +56,10 @@ int main(int argc, char *argv[])
     strcat(config, DEFAULT_CONFIG);
 
     // TODO: Add long opts (see manual getopt)
-    while((opt = getopt(argc, argv, "hp:")) != -1) {
+    while((opt = getopt(argc, argv, "h")) != -1) {
 	switch(opt){
 	case 'h':
 	    printf("TODO: help\n");
-	    break;
-	case 'p':
-	    strcpy(i3path, optarg);
 	    break;
 	default:
 	    printf("Unknown option"); 

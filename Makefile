@@ -23,7 +23,8 @@ _OBJ = \
       task-runner.o \
       configuration-manager.o \
       plugins.o \
-      jsmn.o
+      jsmn.o \
+      sys-utils.o
 
 _MAIN = main.o
 

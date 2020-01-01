@@ -41,14 +41,13 @@ void runLoop(
 
 
 	if(readyfds > 0){
-	    if((fds[0].revents & POLLIN) == POLLIN){
-		ws->event(ws);
-	    }
-	    if((fds[0].revents & POLLHUP) == POLLHUP){
-		// Possible reload of i3 - this will restart
-		// lemonwrapper and we will end up with two
-		// bars and poll endlessly returning with no timeout
-		i3Restart = true;
+	    if(fds[0].revents){
+		if((fds[0].revents & POLLHUP) == POLLHUP){
+		    ws->reconnect(ws);
+		    fds[0].fd = ws->fd;
+		} else if((fds[0].revents & POLLIN) == POLLIN){
+		    ws->event(ws);
+		}
 	    }
 	    if((fds[1].revents & POLLIN) == POLLIN){
 		cfg->event(cfg);
