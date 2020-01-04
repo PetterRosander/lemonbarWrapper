@@ -17,7 +17,7 @@ extern "C" {
  * Declarations
  *****************************************************************************/
 struct workspace;
-typedef void (*_workspace_entryPoint_)(struct workspace *);
+typedef void (*_workspace_entryPoint_)(struct taskRunner *, struct workspace *);
 typedef struct workspace_internal__ *workspace_internal;
 
 /******************************************************************************
@@ -88,10 +88,20 @@ struct workspace_internal__ {
 #endif
 #include "system-calls.h"
 
-private_ void workspace_setup(struct workspace *);
-private_ void workspace_entryPoint(struct workspace *);
-private_ void workspace_reconnect(struct workspace *);
+private_ void workspace_setup(
+	struct taskRunner *,
+	struct workspace *);
 
+private_ void workspace_entryPoint(
+	struct taskRunner *, 
+	struct workspace *);
+private_ void workspace_reconnect(
+	struct taskRunner *,
+	struct workspace *);
+
+private_ void workspace_waitSocket(
+	struct taskRunner *, 
+	void *);
 private_ void workspace_setupSocket(
 	struct taskRunner *, 
 	void *);
@@ -112,6 +122,7 @@ private_ void workspace_parseEvent(
 	void *);
 
 #endif /* __WORKSPACE__ */
+#undef __WORKSPACE__
 
 #ifdef __cplusplus
 }

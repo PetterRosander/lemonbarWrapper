@@ -10,12 +10,13 @@ extern "C" {
 #include <stdio.h>
 #include <sys/types.h>
 #include "configuration-manager.h"
+#include "task-runner.h"
 
 /******************************************************************************
  * Declarations
  *****************************************************************************/
 struct lemonbar;
-typedef void (*_lemonbar_entryPoint_)(struct lemonbar *);
+typedef void (*_lemonbar_entryPoint_)(struct taskRunner *, struct lemonbar *);
 typedef struct lemon_internal__ *lemon_internal;
 
 /******************************************************************************
@@ -72,10 +73,18 @@ struct lemon_internal__ {
 #define private_ static
 #endif
 
-private_ void lemon_setup(struct lemonbar *);
-private_ void lemon_reRender(struct lemonbar *);
-private_ void lemon_reconfigure(struct lemonbar *);
-private_ void lemon_action(struct lemonbar *);
+private_ void lemon_setup(
+	struct taskRunner *,
+	struct lemonbar *);
+private_ void lemon_reRender(
+	struct taskRunner *,
+	struct lemonbar *);
+private_ void lemon_reconfigure(
+	struct taskRunner *,
+	struct lemonbar *);
+private_ void lemon_action(
+	struct taskRunner *,
+	struct lemonbar *);
 
 private_ void lemon_pluginAction(
 	struct taskRunner *,
@@ -96,10 +105,11 @@ private_ void lemon_sendLemonbar(
 	struct taskRunner *,
 	void * );
 private_ void lemon_formatNormal(
-	struct taskRunner *task,
-	void *_lm_);
+	struct taskRunner *,
+	void *);
 
 #endif /*  __LEMON__ */
+#undef __LEMON__
 
 #ifdef __cplusplus
 }

@@ -72,36 +72,55 @@ int lemon_destroy(struct lemonbar *lm)
 /******************************************************************************
  * lemonCommunication entry functions
  *****************************************************************************/
-private_ void lemon_setup(struct lemonbar *lm){
-    struct taskRunner task = {0};
-    task.nextTask = lemon_setupCommunication;
-    task.arg = lm;
+private_ void lemon_setup(
+	struct taskRunner *task,
+	struct lemonbar *lm){
+    task->nextTask[0] = lemon_setupCommunication;
+    task->nextTask[1] = lemon_formatWorkspace;
+    task->nextTask[2] = lemon_formatNormal;
+    task->nextTask[3] = lemon_sendLemonbar;
+    task->nbrTasks = 4;
+    task->arg = lm;
     taskRunner_runTask(task);
 }
 
-private_ void lemon_reRender(struct lemonbar *lm){
-    struct taskRunner task = {0};
-    task.arg = lm;
+private_ void lemon_reRender(
+	struct taskRunner *task,
+	struct lemonbar *lm){
+    task->arg = lm;
     if(lm->pl->shutdownOrLock){
-	task.nextTask = lemon_lockOrShutdown;
+	task->nextTask[0] = lemon_lockOrShutdown;
+	task->nextTask[1] = lemon_sendLemonbar;
+	task->nbrTasks = 2;
     } else {
-	task.nextTask = lemon_formatWorkspace;
+	task->nextTask[0] = lemon_formatWorkspace;
+	task->nextTask[1] = lemon_formatNormal;
+	task->nextTask[2] = lemon_sendLemonbar;
+	task->nbrTasks = 3;
     }
 	
     taskRunner_runTask(task);
 }
 
-private_ void lemon_reconfigure(struct lemonbar *lm){
-    struct taskRunner task = {0};
-    task.nextTask = lemon_teardownCommunication;
-    task.arg = lm;
+private_ void lemon_reconfigure(
+	struct taskRunner *task,
+	struct lemonbar *lm){
+    task->nextTask[0] = lemon_teardownCommunication;
+    task->nextTask[1] = lemon_setupCommunication;
+    task->nextTask[2] = lemon_formatWorkspace;
+    task->nextTask[3] = lemon_formatNormal;
+    task->nextTask[4] = lemon_sendLemonbar;
+    task->nbrTasks = 5;
+    task->arg = lm;
     taskRunner_runTask(task);
 }
 
-private_ void lemon_action(struct lemonbar *lm){
-    struct taskRunner task = {0};
-    task.nextTask = lemon_pluginAction;
-    task.arg = lm;
+private_ void lemon_action(
+	struct taskRunner *task,
+	struct lemonbar *lm){
+    task->nextTask[0] = lemon_pluginAction;
+    task->nbrTasks = 1;
+    task->arg = lm;
     taskRunner_runTask(task);
 }
 
@@ -120,7 +139,6 @@ private_ void lemon_pluginAction(
     int i = system(strtok(action, "\n"));
     (void)i;
     task->exitStatus = 0;
-    task->nextTask = NULL;
 }
 
 
@@ -136,11 +154,9 @@ private_ void lemon_setupCommunication(
 
     if(lm->internal->pid < 0) {
 	task->exitStatus = -1;
-	task->nextTask   = NULL;
 	return;
     }
     task->exitStatus = 0;
-    task->nextTask = lemon_formatWorkspace;
 }
 
 private_ void lemon_teardownCommunication(
@@ -153,7 +169,6 @@ private_ void lemon_teardownCommunication(
     close(lm->pipeRead);
     (void) ret;
     task->exitStatus = 0;
-    task->nextTask = lemon_setupCommunication;
 }
 
 private_ void lemon_formatWorkspace(
@@ -184,7 +199,6 @@ private_ void lemon_formatWorkspace(
     currLen -= 2;
     lm->internal->lenFormat = currLen;
     task->exitStatus = 0;
-    task->nextTask   = lemon_formatNormal;
 }
 
 private_ void lemon_formatNormal(
@@ -198,7 +212,6 @@ private_ void lemon_formatNormal(
 	    &lm->internal->lemonFormat[lm->internal->lenFormat - 1], 
 	    "%%{r}%s", pl->pluginsFormatted);
     task->exitStatus = 0;
-    task->nextTask   = lemon_sendLemonbar;
 }
 
 private_ void lemon_lockOrShutdown(
@@ -214,7 +227,6 @@ private_ void lemon_lockOrShutdown(
 	       	" | %%{A:shutdown -h now:}\uf011%%{A}"
 		"%%{r}%%{A:x:}x%%{A}");
     task->exitStatus = 0;
-    task->nextTask   = lemon_sendLemonbar;
 }
 
 private_ void lemon_sendLemonbar(
@@ -226,12 +238,10 @@ private_ void lemon_sendLemonbar(
 	    lm->internal->lemonFormat, lm->internal->lenFormat);
     if(lm->internal->lenFormat != sentBytes){
 	task->exitStatus = -1;
-	task->nextTask   = NULL;
 	return;
     }
     sentBytes = WRITE(lm->internal->pipeWrite, "\n", 1);
     (void)sentBytes;
 
     task->exitStatus = 0;
-    task->nextTask = NULL;
 }

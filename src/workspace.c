@@ -5,6 +5,7 @@
 #define __WORKSPACE__
 #include "workspace.h"
 
+#include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +15,8 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <sys/inotify.h>
+#include <errno.h>
 
 #define NBR_JSMN_TOKENS 1024
 #include "task-runner.h"
@@ -95,29 +98,42 @@ int workspace_destroy(struct workspace *ws)
 /******************************************************************************
  * Workspace entry functions
  *****************************************************************************/
-private_ void workspace_setup(struct workspace *ws)
+private_ void workspace_setup(
+	struct taskRunner *task,
+	struct workspace *ws)
 {
-    struct taskRunner task = {0};
-    task.nextTask = workspace_setupSocket;
-    task.arg = ws;
+    task->nextTask[0] = workspace_waitSocket;
+    task->nextTask[1] = workspace_setupSocket;
+    task->nextTask[2] = workspace_subscribeWorkspace;
+    task->nextTask[3] = workspace_startWorkspace;
+    task->nextTask[4] = workspace_parseInitWorkspace;
+    task->nbrTasks = 5;
+    task->arg = ws;
     taskRunner_runTask(task);
 }
 
-private_ void workspace_reconnect(struct workspace *ws)
+private_ void workspace_reconnect(
+	struct taskRunner *task, 
+	struct workspace *ws)
 {
     close(ws->fd);
     ws->internal->reconnect = true;
-    struct taskRunner task = {0};
-    task.nextTask = workspace_setupSocket;
-    task.arg = ws;
+    task->nextTask[0] = workspace_waitSocket;
+    task->nextTask[1] = workspace_setupSocket;
+    task->nextTask[2] = workspace_subscribeWorkspace;
+    task->nbrTasks = 3;
+    task->arg = ws;
     taskRunner_runTask(task);
 }
 
-private_ void workspace_entryPoint(struct workspace *ws)
+private_ void workspace_entryPoint(
+	struct taskRunner *task, 
+	struct workspace *ws)
 {
-    struct taskRunner task = {0};
-    task.nextTask = workspace_eventWorkspace;
-    task.arg = ws;
+    task->nextTask[0] = workspace_eventWorkspace;
+    task->nextTask[1] = workspace_parseEvent;
+    task->nbrTasks = 2;
+    task->arg = ws;
     taskRunner_runTask(task);
 }
 
@@ -128,16 +144,32 @@ private_ void workspace_entryPoint(struct workspace *ws)
  * Sets up a file desciptor to be used for communication with
  * i3 events and commands.
  */
+private_ void workspace_waitSocket(
+	struct taskRunner *task,
+	void *_ws_)
+{
+    struct workspace *ws = _ws_;
+
+    struct stat buf;
+    if(stat(ws->i3path, &buf) != 0){
+	lemonLog(DEBUG, "%s does no exist yet - wait");
+	task->exitStatus = 0;
+	return;
+    }
+
+    task->exitStatus = 0;
+}
+
 private_ void workspace_setupSocket(
 	struct taskRunner *task,
 	void *_ws_)
 {
     struct workspace *ws = _ws_;
-     ws->fd = SOCKET(PF_LOCAL, SOCK_STREAM, 0);
+    ws->fd = SOCKET(PF_LOCAL, SOCK_STREAM, 0);
 
     if(ws->fd < 0){
+	lemonLog(ERROR, "Failed to create socket %s", strerror(errno));
 	task->exitStatus = -1;
-	task->nextTask   = NULL;
 	return;
     }
 
@@ -146,13 +178,13 @@ private_ void workspace_setupSocket(
     strncpy(addr.sun_path, ws->i3path, strlen(ws->i3path));
 
     if(CONNECT(ws->fd, (const struct sockaddr *)&addr, sizeof(addr)) < 0){
+	lemonLog(ERROR, "Failed to connect with i3 socket %s", 
+		strerror(errno));
 	task->exitStatus = -1;
-	task->nextTask   = NULL;
-        return;
+	return;
     }
 
     task->exitStatus = 0;
-    task->nextTask   = workspace_subscribeWorkspace;
 }
 
 /*
@@ -168,14 +200,14 @@ private_ void workspace_subscribeWorkspace(
     unsigned char subscribe[14];
     formatMessage(SUBSCRIBE, subscribe);
     if(WRITE(ws->fd, subscribe, sizeof(subscribe)) == 0){
-	task->nextTask = NULL;
+	lemonLog(ERROR, "Failed write %s", strerror(errno));
 	task->exitStatus = -1;
 	return;
     }
 
     char event[16] = "[ \"workspace\" ]";
     if(WRITE(ws->fd, event, sizeof(event)) == 0){
-	task->nextTask = NULL;
+	lemonLog(ERROR, "Failed write %s", strerror(errno));
 	task->exitStatus = -1;
 	return;
     }
@@ -183,24 +215,25 @@ private_ void workspace_subscribeWorkspace(
     unsigned char reply[20] = {0};
     int i = READ(ws->fd, (void *)&reply[0], 14);
     if(i < -1){
-	perror("write");
-	task->nextTask = NULL;
+	lemonLog(ERROR, "Failed read %s", strerror(errno));
 	task->exitStatus = -1;
 	return;
     }
 
     i = READ(ws->fd, (void *)&reply[0], reply[6]);
-   
+
     if(i < -1 || strcmp((char *)reply, "{\"success\":true}") != 0){
-	task->nextTask = NULL;
+	lemonLog(ERROR, "Failed to subscribe to i3 worskapce %s", 
+		strerror(errno));
 	task->exitStatus = -1;
 	return;
     }
-   
+
     if(ws->internal->reconnect){
-	task->nextTask = NULL;
+	lemonLog(DEBUG, "Reconnected with i3 and subscribed succesfully");
+	ws->internal->reconnect = false;
     } else {
-	task->nextTask = workspace_startWorkspace;
+	lemonLog(DEBUG, "Connected with i3 and subscribed succesfully");
     }
 
     task->exitStatus = 0;
@@ -216,10 +249,10 @@ private_ void workspace_startWorkspace(
 {
     struct workspace *ws = _ws_;
     unsigned char request[14] = {0};
-    
+
     formatMessage(COMMAND, request);
-    if(WRITE(ws->fd, request, sizeof(request)) == 0){
-	task->nextTask   = NULL;
+    if(WRITE(ws->fd, request, sizeof(request)) <= 0){
+	lemonLog(ERROR, "Failed to write %s", strerror(errno));
 	task->exitStatus = -1;
 	return;
     }
@@ -228,22 +261,21 @@ private_ void workspace_startWorkspace(
     int i = READ(ws->fd, &reply[0], sizeof(reply));
 
     if(i < 0){
-	task->nextTask   = NULL;
+	lemonLog(ERROR, "Failed read %s", strerror(errno));
 	task->exitStatus = -1;
 	return;
     }
-    
+
     uint32_t len = 0;
     len += (uint32_t)reply[6] << (8*0);
     len += (uint32_t)reply[7] << (8*1);
-    
+
     ws->internal->lenjson = len + 1;
     ws->internal->json = malloc(sizeof(char) * len + 1);
 
     // TODO: DO IN WHILE LOOP
     ws->internal->lenjson = READ(ws->fd, ws->internal->json, len);
 
-    task->nextTask   = workspace_parseInitWorkspace;
     task->exitStatus = 0;
 }
 
@@ -260,19 +292,25 @@ private_ void workspace_parseInitWorkspace(
 
     jsmn_init(&parser);
 
-    int ret = jsmn_parse(&parser, ws->internal->json, 
+    int numberTokens = jsmn_parse(&parser, ws->internal->json, 
 	    ws->internal->lenjson, token, NBR_JSMN_TOKENS);
 
-    if(ret < 1){
+    if(numberTokens < 1){
+	char *JSMN_ERR[3] = {
+	    "JSMN_ERROR_NOMEM", 
+	    "JSMN_ERROR_INVAL", 
+	    "JSMN_ERROR_PART"
+	};
+	lemonLog(ERROR, "jsmn faileld to parse json %s", 
+		JSMN_ERR[numberTokens]);
 	task->exitStatus = -1;
-	task->nextTask   = NULL;
-       return;
+	return;
     }
 
     int n = -1;
-    for(int i = 0; i < ret; i++){
+    for(int i = 0; i < numberTokens; i++){
 	if(token[i].type == JSMN_OBJECT && 
-	   jsoneq(ws->internal->json, &token[i - 1], "rect") != 0){
+		jsoneq(ws->internal->json, &token[i - 1], "rect") != 0){
 	    n++;
 	}
 	if(jsoneq(ws->internal->json, &token[i], "focused") == 0){
@@ -305,7 +343,6 @@ private_ void workspace_parseInitWorkspace(
     ws->internal->json = NULL;
     ws->internal->lenjson = 0;
     task->exitStatus = 0;
-    task->nextTask   = NULL;
 }
 
 /*
@@ -320,9 +357,9 @@ private_ void workspace_eventWorkspace(
     unsigned char event[14] = {0};
 
     int i = READ(ws->fd, &event[0], sizeof(event));
-    
+
     if(i < 0){
-	task->nextTask   = NULL;
+	lemonLog(ERROR, "Failed to write %s", strerror(errno));
 	task->exitStatus = -1;
 	return;
     }
@@ -335,8 +372,13 @@ private_ void workspace_eventWorkspace(
 
     ws->internal->lenjson = READ(ws->fd, ws->internal->json, len);
 
+    if(ws->internal->lenjson < len){
+	lemonLog(ERROR, "Did not read complete json");
+	task->exitStatus = 0;
+	return;
+    }
+
     task->exitStatus = 0;
-    task->nextTask   = workspace_parseEvent;
 }
 
 
@@ -356,27 +398,33 @@ private_ void workspace_parseEvent(
 
     int numberTokens = jsmn_parse(&parser, ws->internal->json, 
 	    ws->internal->lenjson, token, NBR_JSMN_TOKENS);
-    
+
 
     if(numberTokens < 1){
+	char *JSMN_ERR[3] = {
+	    "JSMN_ERROR_NOMEM", 
+	    "JSMN_ERROR_INVAL", 
+	    "JSMN_ERROR_PART"
+	};
+	lemonLog(ERROR, "jsmn faileld to parse json %s", 
+		JSMN_ERR[numberTokens]);
 	task->exitStatus = -1;
-	task->nextTask   = NULL;
 	return;
     }
 
     enum I3_EVENT event = UNKNOWN;    
     if(jsoneq(ws->internal->json, &token [1], "change") == 0 &&
-       jsoneq(ws->internal->json, &token [2], "focus") == 0){
+	    jsoneq(ws->internal->json, &token [2], "focus") == 0){
 	event = FOCUS;
     }
 
     if(jsoneq(ws->internal->json, &token [1], "change") == 0 &&
-       jsoneq(ws->internal->json, &token [2], "init") == 0){
+	    jsoneq(ws->internal->json, &token [2], "init") == 0){
 	event = INIT;
     }
-    
+
     if(jsoneq(ws->internal->json, &token [1], "change") == 0 &&
-       jsoneq(ws->internal->json, &token [2], "empty") == 0){
+	    jsoneq(ws->internal->json, &token [2], "empty") == 0){
 	event = EMPTY;
     }
 
@@ -389,15 +437,15 @@ private_ void workspace_parseEvent(
 	    break;
 	case EMPTY:
 	    parseChangeempty(parser, token, numberTokens, ws);
+	    break;
 	default:
+	    lemonLog(DEBUG, "Unhandled message");
 	    break;
     }
 
     free(ws->internal->json);
     ws->internal->json = NULL;
     task->exitStatus = 0;
-    task->nextTask   = NULL;
-
 }
 
 /******************************************************************************
@@ -416,10 +464,10 @@ static inline void parseChangefocus(
 {
     bool current = true;
     for(int i = 1; i < numberTokens; i++){
-	 if(token[i].type == JSMN_OBJECT && 
-	    jsoneq(ws->internal->json, &token[i - 1], "old") == 0){
-	     current = false;
-	 }
+	if(token[i].type == JSMN_OBJECT && 
+		jsoneq(ws->internal->json, &token[i - 1], "old") == 0){
+	    current = false;
+	}
 	if(jsoneq(ws->internal->json, &token[i], "num") == 0){
 	    char value[10] = {0};
 	    strncpy(value, ws->internal->json + token[i + 1].start, 

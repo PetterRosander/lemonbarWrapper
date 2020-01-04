@@ -1,5 +1,8 @@
 #define _POSIX_SOURCE
 #define _GNU_SOURCE
+#include <time.h>
+#include <stdarg.h>
+#include <stdint.h>
 #include <ctype.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -119,4 +122,65 @@ pid_t popen2(
     }
 
     return pid;
+}
+
+
+void lemonLogInit(struct log_t *lp, const char *path)
+{
+    strcpy(lp->filepath, path);
+    sprintf(lp->logfile, "%s.%i", lp->filepath, lp->logfilenum);
+    lp->logfilenum += 1;
+    if(lp->logfilenum > 4){
+	lp->logfilenum = 0;
+    }
+    lp->fp = fopen(lp->logfile, "w");
+}
+
+void _lemonLog(struct log_t *lp, enum LEMON_LOGLEVEL level, char *format, ...)
+{
+    va_list list;
+
+    char logrow[512*4] = {0};
+    va_start(list, format);
+    vsnprintf(logrow, sizeof(logrow), format, list);
+    va_end(list);
+
+    if(lp->nRows > MAX_ROWS){
+	lp->logfilenum += 1;
+    	if(lp->logfilenum > 4){
+    	    lp->logfilenum = 0;
+    	}
+	sprintf(lp->logfile, "%s.%i", lp->filepath, lp->logfilenum);
+	fclose(lp->fp);
+	lp->fp = fopen(lp->logfile, "w");
+    }
+
+    time_t now = time(NULL);
+    struct tm *tm_info = localtime(&now);
+
+    char asciiTime[9] = {0};
+    strftime(asciiTime, 9, "%H:%M:%S", tm_info);
+
+    if(lp->daemonize){
+	fprintf(lp->fp, "[%s - %s]: %s [%s - %d]\n", asciiTime, 
+		level ? "ERROR" : "DEBUG", logrow, lp->func, lp->line);
+	fflush(lp->fp);
+    } else {
+	FILE *out = NULL;
+	switch(level){
+	    case ERROR:
+		out = stderr;
+		break;
+	    case DEBUG:
+		out = stdout;
+		break;
+	}
+	fprintf(out, "[%s - %s]: %s [%s - %d]\n", asciiTime, 
+		level ? "ERROR" : "DEBUG", logrow, lp->func, lp->line);
+    }
+}
+
+void lemonLogClose(struct log_t *lp)
+{
+    fclose(lp->fp);
 }

@@ -3,8 +3,8 @@
  *****************************************************************************/
 #define __PLUGINS__
 #include "plugins.h"
-#include "configuration-manager.h"
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "configuration-manager.h"
 #include "task-runner.h"
 #include "hashmap.h"
 /******************************************************************************
@@ -68,35 +69,46 @@ int plug_destroy(struct plugins *cfg)
 /******************************************************************************
  * lemonCommunication entry functions
  *****************************************************************************/
-private_ void plug_setup(struct plugins *pl)
+private_ void plug_setup(
+	struct taskRunner *task,
+	struct plugins *pl)
 {
-    struct taskRunner task = {0};
-    task.nextTask = plug_setupPipe;
-    task.arg = pl;
+    task->nextTask[0] = plug_setupPipe;
+    task->nextTask[1] = plug_configure;
+    task->nbrTasks = 2;
+    task->arg = pl;
     taskRunner_runTask(task);
 }
 
-private_ void plug_reconfigure(struct plugins *pl)
+private_ void plug_reconfigure(
+	struct taskRunner *task,
+	struct plugins *pl)
 {
-    struct taskRunner task = {0};
-    task.nextTask = plug_configure;
-    task.arg = pl;
+    task->nextTask[0] = plug_configure;
+    task->nbrTasks = 1;
+    task->arg = pl;
     taskRunner_runTask(task);
 }
 
-private_ void plug_runNormal(struct plugins *pl)
+private_ void plug_runNormal(
+	struct taskRunner *task,
+	struct plugins *pl)
 {
-    struct taskRunner task = {0};
-    task.nextTask = plug_getBattery;
-    task.arg = pl;
+    task->nextTask[0] = plug_getBattery;
+    task->nextTask[1] = plug_getWifi;
+    task->nextTask[2] = plug_getTime;
+    task->nbrTasks = 3;
+    task->arg = pl;
     taskRunner_runTask(task);
 }
 
-private_ void plug_runEvent(struct plugins *pl)
+private_ void plug_runEvent(
+	struct taskRunner *task,
+	struct plugins *pl)
 {
-    struct taskRunner task = {0};
-    task.nextTask = plug_lockOrShutdown;
-    task.arg = pl;
+    task->nextTask[0] = plug_lockOrShutdown;
+    task->nbrTasks = 1;
+    task->arg = pl;
     taskRunner_runTask(task);
 }
 
@@ -113,10 +125,10 @@ private_ void plug_lockOrShutdown(
     (void) readBytes;
 
     if(strncmp(packet, "LS", 2) == 0){
+	lemonLog(DEBUG, "reuqested lock-logout-shutdown");
 	pl->shutdownOrLock = true;
     }
 
-    task->nextTask = NULL;
     task->exitStatus = 0;
 }
 
@@ -140,7 +152,6 @@ private_ void plug_configure(
 	    pl->plcfg.notifyWarn[i] = true;
 	}
     }
-    task->nextTask = NULL;
     task->exitStatus = 0;
 
 }
@@ -154,12 +165,26 @@ private_ void plug_setupPipe(
     char readPipe[100] = {0};
     strcpy(readPipe, home);
     strcat(readPipe, "/.local/run/lemonwrapper.pipe");
-    mkfifo(readPipe, 0666);
+
+    struct stat st = {0};
+    if(stat(readPipe, &st) != 0){
+	if(mkfifo(readPipe, 0666) == -1){
+	    lemonLog(ERROR, "Failed to create pipe %s", strerror(errno));
+	    task->exitStatus = -1;
+	    return;
+	}
+    } else {
+	lemonLog(DEBUG, "Pipe already exists");
+    }
     // Since the pipe will be opened and closed multiple times
     // We do not want poll to hand on POLLHUP
     pl->pluginsFd = open(readPipe, O_RDWR | O_NONBLOCK);
+    if(pl->pluginsFd < 0){
+	lemonLog(ERROR, "failed to open pipe %s", strerror(errno));
+	task->exitStatus = -1;
+	return;
+    }
 
-    task->nextTask = plug_configure;
     task->exitStatus = 0;
 }
 
@@ -167,7 +192,6 @@ private_ void plug_startUserPlugins(
 	struct taskRunner *task,
 	void *_pl_)
 {
-    task->nextTask = NULL;
     task->exitStatus = 0;
 }
 
@@ -220,34 +244,22 @@ private_ void plug_getBattery(
     }
 
     for(int i = 0; i < MAX_BATTERY_WARN; i++){
-	if(pl->bat.capacity < pl->plcfg.warnPercent[i] && 
-	   pl->plcfg.notifyWarn[i]){
-	    task->exitStatus = 0;
-	    task->nextTask = plug_notifyBattery;
+	if(pl->bat.capacity <= pl->plcfg.warnPercent[i] && 
+		pl->plcfg.notifyWarn[i]){
+	    
+	    int i = system("notify-send Battery \"low battery\"");
+	    if(i < 0){
+		lemonLog(ERROR, "sending notificatication faild %s", 
+			strerror(errno));
+	    }
 	    pl->plcfg.notifyWarn[i] = false;
+
 	} else if(pl->bat.capacity > pl->plcfg.warnPercent[i]) {
 	    pl->plcfg.notifyWarn[i] = true;
 	}
     }
 
-    if(task->nextTask == plug_getBattery){
-	task->exitStatus = 0;
-    	task->nextTask = plug_getWifi;
-    }
-}
-
-/*
- * There is a lib for this but 
- * want to limit dependencies
- */
-private_ void plug_notifyBattery(
-	struct taskRunner *task,
-	void *_pl_)
-{
-    int i = system("notify-send Battery \"low battery\"");
-    (void)i;
     task->exitStatus = 0;
-    task->nextTask = plug_getWifi;
 }
 
 #define FWIFI_LINK "/proc/net/wireless"
@@ -258,15 +270,18 @@ private_ void plug_getWifi(
     struct plugins *pl = _pl_;
     FILE *fWifi = fopen(FWIFI_LINK, "r");
     char ignore[512];
+
     char *ptr = fgets(ignore, sizeof(ignore), fWifi);
     ptr = fgets(ignore, sizeof(ignore), fWifi);
-    int i = fscanf(fWifi, "%s %s %hhu %s", ignore, ignore, &pl->wf.link, ignore);
-    
-    (void)i;
     (void)ptr;
 
-    task->exitStatus = 0;
-    task->nextTask = plug_getTime;
+    int i = fscanf(fWifi, "%s %s %hhu %s", ignore, ignore, &pl->wf.link, ignore);
+
+    if(i != 4){
+	pl->wf.link = 0;
+    }
+    
+
 
     if(pl->wf.link > 50){
         pl->pluginsLen += sprintf(&pl->pluginsFormatted[pl->pluginsLen], 
@@ -280,6 +295,7 @@ private_ void plug_getWifi(
     }
 
     fclose(fWifi);
+    task->exitStatus = 0;
 }
 
 private_ void plug_getTime(
@@ -296,6 +312,5 @@ private_ void plug_getTime(
     pl->pluginsLen += sprintf(&pl->pluginsFormatted[pl->pluginsLen], 
 	    "%s ", pl->td.bufTime);
     task->exitStatus = 0;
-    task->nextTask = NULL;
 }
 

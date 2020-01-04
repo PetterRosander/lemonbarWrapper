@@ -1,9 +1,14 @@
 #define _XOPEN_SOURCE
+#define _DEFAULT_SOURCE
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <locale.h>
+#include <getopt.h>
+#include <getopt.h>
+#include <errno.h>
+#include <string.h>
 
 #include "task-runner.h"
 #include "plugins.h"
@@ -13,6 +18,7 @@
 #include "sys-utils.h"
 
 #define DEFAULT_CONFIG "/.config/lemonwrapper/lemon.config"
+#define DEFAULT_LOG    "/.local/run/lemon.log"
 
 bool request_exit = false;
 
@@ -33,39 +39,86 @@ static void signalHandler(int sig)
     }
 }
 
+static void __attribute__((noreturn)) printHelp(char *argv[])
+{
+    printf("Usage: %s [options]\n", argv[0]);
+    printf("Options:\n");
+    printf("  --help      -h\tprintf this help message\n");
+    printf("  --no-daemon -d\truns program without daemonizing\n");
+    printf("  --log-path  -l\tspecify a different log path [default:"
+	                            " %s]\n", DEFAULT_LOG);
+    fflush(stdout);
+    exit(EXIT_FAILURE);
+}
+
 int main(int argc, char *argv[])
 {
 
     int opt;
     char i3path[126] = {0};
     char config[128] = {0};
+    char logpath[128] = {0};
 
     pid_t pid = pidof(argv[0]);
     pid_t me = getpid();
 
     if(pid != me){
-	return 0;
+        return 0;
     }
-    
+
+    struct taskRunner _task = {0};
+    struct taskRunner *task = &_task;
 
     char *home = getenv("HOME");
+    ssize_t lenHome = strlen(home);
+
     char *_i3path = getenv("I3SOCK");
     strcpy(i3path, _i3path);
 
-    memcpy(config, home, strlen(home));
+    memcpy(logpath, home, lenHome);
+    strcat(logpath, DEFAULT_LOG);
+
+    memcpy(config, home, lenHome);
     strcat(config, DEFAULT_CONFIG);
 
+
     // TODO: Add long opts (see manual getopt)
-    while((opt = getopt(argc, argv, "h")) != -1) {
+    int index = -1;
+    struct option long_options[4] = {
+	{"help", no_argument, 0, 'h'},
+	{"no-daemon", no_argument, 0, 'd'},
+	{"log-path", required_argument, 0, 'l'},
+	{0, 0, 0, 0}
+    };
+
+    task->lp.daemonize = true;
+    while((opt = getopt_long(argc, argv, "hdl:", long_options, &index)) != -1) {
 	switch(opt){
-	case 'h':
-	    printf("TODO: help\n");
-	    break;
-	default:
-	    printf("Unknown option"); 
-	    break;
+	    case 'l':
+		strcpy(logpath, optarg);
+		break;
+	    case 'd':
+		task->lp.daemonize = false;
+		break;
+	    case 'h':
+	    case '?':
+	    default:
+		printHelp(argv);
+		break;
 	}
+	index = -1;
     }
+
+
+    if(task->lp.daemonize){
+	int i = daemon(0, 0);
+	if(i == -1){
+	    lemonLog(ERROR, "Failed to daemonize %s", strerror(errno));
+	}
+	lemonLogInit(&task->lp, logpath);
+    }
+
+    lemonLog(DEBUG, "--- %s started ---", argv[0]);
 
 
     signal(SIGCHLD, signalHandler);
@@ -73,32 +126,51 @@ int main(int argc, char *argv[])
     signal(SIGTERM, signalHandler);
 
     if(setlocale(LC_ALL, "C.UTF-8") == NULL){
-        printf("Falied to set locale\n");
-        return 198;
+	lemonLog(ERROR, "Failed to set locale to C.UTF-8"
+		"exiting due to the error %s", strerror(errno));
+	exit(EXIT_FAILURE);
     }
 
-    struct configuration * cfg = config_init(config);
-    cfg->setup(cfg);
+    struct configuration *cfg = config_init(config);
+    if(cfg == NULL){
+	lemonLog(ERROR, "Failed create configuration %s", strerror(errno));
+    }
+    cfg->setup(task, cfg);
     
     struct workspace *ws = workspace_init(i3path);
-    ws->setup(ws);
+    if(ws == NULL){
+	lemonLog(ERROR, "Failed create workspace %s", strerror(errno));
+    }
+    ws->setup(task, ws);
 
 
     struct plugins *pl = plug_init(cfg);
-    pl->setup(pl);
-    pl->normal(pl);
+    if(pl == NULL){
+	lemonLog(ERROR, "Failed create plugin %s", strerror(errno));
+    }
+    pl->setup(task, pl);
+    pl->normal(task, pl);
 
     struct lemonbar *lm = lemon_init(cfg);
+    if(pl == NULL){
+	lemonLog(ERROR, "Failed create plugin %s", strerror(errno));
+    }
     lm->ws = ws;
     lm->pl = pl;
-    lm->setup(lm);
+    lm->setup(task, lm);
 
-    runLoop(ws, pl, cfg, lm);
-    
+    if(task && ws && pl && cfg && lm){
+	runLoop(task, ws, pl, cfg, lm);
+    } else {
+	lemonLog(ERROR, "Exiting due to unrecoverable error");
+    }
+
+    // free on NULL is noop    
     workspace_destroy(ws);
     lemon_destroy(lm);
     config_destory(cfg);
     plug_destroy(pl);
+
 
 
     return 0;

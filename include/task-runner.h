@@ -4,26 +4,40 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#include "lemonCommunication.h"
-#include "workspace.h"
-#include "configuration-manager.h"
-#include "plugins.h"
+#include "sys-utils.h"
+#define MAX_TASK 10
 
 struct taskRunner;
-typedef void (*next)(struct taskRunner *, void *);
+typedef void (*next[MAX_TASK])(struct taskRunner *, void *);
 
 struct taskRunner {
+    struct log_t lp;
+
     next nextTask;
     void *arg;
+    uint8_t nbrTasks;
     int exitStatus;
-    char function[100];
 };
 
-int taskRunner_runTask(struct taskRunner);
+int taskRunner_runTask(struct taskRunner *);
+
+/*
+ * TODO: should probably include these files
+ * but I get some wierd complier errors so for now it
+ * is enough for the compiler to know that they
+ * are declared somewhere 
+ */
+struct taskRunner;
+struct workspace;
+struct plugins;
+struct configuration;
+struct lemonbar;
+
 void runLoop(
+	struct taskRunner *,
 	struct workspace *, 
 	struct plugins *,
-	struct configuration *cfg,
+	struct configuration *,
 	struct lemonbar *);
 #ifdef __cplusplus
 }

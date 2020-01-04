@@ -10,11 +10,12 @@ CFLAGS = \
 	 -g \
 	 -pedantic \
 	 -Werror \
-	 -I$(IDIR)/ \
-	 -I$(JSMN) \
 	 -I$(HASHMAP) \
+	 -I$(IDIR) \
+	 -I$(JSMN) \
 	 -fsanitize=address \
 	 -fno-omit-frame-pointer 
+
 LIBS = \
 
 _OBJ = \

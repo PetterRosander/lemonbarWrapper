@@ -8,6 +8,7 @@ extern "C" {
  * PreProcessor directives
  *****************************************************************************/
 #include <stdint.h>
+#include <stdbool.h>
 #include "task-runner.h"
 #include "configuration-manager.h"
 #define MAX_BATTERY_WARN 4
@@ -16,7 +17,7 @@ extern "C" {
  * Declarations
  *****************************************************************************/
 struct plugins;
-typedef void (*_plugins_entryPoint_)(struct plugins *);
+typedef void (*_plugins_entryPoint_)(struct taskRunner *, struct plugins *);
 
 /******************************************************************************
  * Structs
@@ -83,10 +84,18 @@ int plug_destroy(struct plugins*);
 
 #ifdef __PLUGINS__
 #include "task-runner.h"
-private_ void plug_setup(struct plugins *);
-private_ void plug_reconfigure(struct plugins *);
-private_ void plug_runNormal(struct plugins *);
-private_ void plug_runEvent(struct plugins *);
+private_ void plug_setup(
+	struct taskRunner *,
+	struct plugins *);
+private_ void plug_reconfigure(
+	struct taskRunner *,
+	struct plugins *);
+private_ void plug_runNormal(
+	struct taskRunner *,
+	struct plugins *);
+private_ void plug_runEvent(
+	struct taskRunner *,
+	struct plugins *);
 
 private_ void plug_lockOrShutdown(
 	struct taskRunner *,
@@ -114,6 +123,7 @@ private_ void plug_getTime(
 	void *);
 
 #endif /* __PLUGINS__ */
+#undef __PLUGINS__
 
 #ifdef __cplusplus
 }

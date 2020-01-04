@@ -16,6 +16,7 @@ CFLAGS_TEST = \
 	      -I$(IDIR) \
 	      -I$(JSMN) \
 	      -I$(UDIR) \
+	      -I$(HASHMAP) \
 	      $(COMMON_TEST_FLAGS) \
 	      -I3rd-party/Catch2/single_include/
 

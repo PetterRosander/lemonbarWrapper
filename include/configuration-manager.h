@@ -9,15 +9,15 @@ extern "C" {
  *****************************************************************************/
 #include <wchar.h>
 
-// ALE-LINTER is wierd here...
-#include "../3rd-party/hashmap/hashmap.h"
+#include "hashmap.h"
+#include "task-runner.h"
 #define NCONFIG_PARAM 10
 
 /******************************************************************************
  * Declarations
  *****************************************************************************/
 struct configuration;
-typedef void (*_config_entryPoint_)(struct configuration *);
+typedef void (*_config_entryPoint_)(struct taskRunner *, struct configuration *);
 
 /******************************************************************************
  * Structs
@@ -52,8 +52,12 @@ int config_destory(struct configuration*);
 
 #ifdef __CONFIGURATION__
 #include "task-runner.h"
-private_ void config_setup(struct configuration *);
-private_ void config_event(struct configuration *);
+private_ void config_setup(
+	struct taskRunner *,
+	struct configuration *);
+private_ void config_event(
+	struct taskRunner *,
+	struct configuration *);
 
 private_ void config_handleEvents(
 	struct taskRunner *,
@@ -66,6 +70,7 @@ private_ void config_readConfiguration(
 	void *);
 
 #endif /*__CONFIGURATION__ */
+#undef __CONFIGURATION__
 
 #ifdef __cplusplus
 }
