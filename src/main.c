@@ -72,8 +72,10 @@ int main(int argc, char *argv[])
     char *home = getenv("HOME");
     ssize_t lenHome = strlen(home);
 
-    char *_i3path = getenv("I3SOCK");
-    strcpy(i3path, _i3path);
+    int uid = getuid();
+    pid_t i3 = pidof("i3");
+    snprintf(i3path, sizeof(i3path), "/var/run/user/%d/i3/ipc-socket.%d", 
+	    uid, i3);
 
     memcpy(logpath, home, lenHome);
     strcat(logpath, DEFAULT_LOG);
@@ -92,7 +94,7 @@ int main(int argc, char *argv[])
     };
 
     task->lp.daemonize = true;
-    while((opt = getopt_long(argc, argv, "hdl:", long_options, &index)) != -1) {
+    while((opt = getopt_long(argc, argv, "hdl:", long_options, &index)) != -1){
 	switch(opt){
 	    case 'l':
 		strcpy(logpath, optarg);
@@ -118,7 +120,7 @@ int main(int argc, char *argv[])
 	lemonLogInit(&task->lp, logpath);
     }
 
-    lemonLog(DEBUG, "--- %s started ---", argv[0]);
+    lemonLog(DEBUG, "%s started ipc-socket (i3) %s", argv[0], i3path);
 
 
     signal(SIGCHLD, signalHandler);

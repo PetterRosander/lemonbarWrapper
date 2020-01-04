@@ -158,10 +158,10 @@ private_ void config_readConfiguration(
 	nextTok++;
 	strcpy(cfg->mcfg.key[i], tok);
 	strcpy(cfg->mcfg.value[i], nextTok);
-	int error = hashmap_put(cfg->mcfg.configMap, cfg->mcfg.key[i], (void *)cfg->mcfg.value[i]);	
+	int error = hashmap_put(cfg->mcfg.configMap, 
+		cfg->mcfg.key[i], (void *)cfg->mcfg.value[i]);	
 	(void) error;
     }
-    printf("Reading configuration exited normally\n");
 
     task->exitStatus = 0;
     fclose(fcfg);

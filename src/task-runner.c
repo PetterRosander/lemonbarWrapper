@@ -12,13 +12,21 @@
 #include "lemonCommunication.h"
 #include "workspace.h"
 
+#define MILLI 1000
 /*
  * Snowflake try and catch error handling
+ * for fun
  */
-#define try bool __HadError=false;
+#define try bool __HadError=false; int e = 0;
 #define catch(x) ExitJmp:if(__HadError)
-#define throw(x) __HadError=true;goto ExitJmp;
-#define MILLI 1000
+#define throw(x) __HadError=true;goto ExitJmp
+#define run(target) \
+    target; \
+    if(task->exitStatus < 0) { \
+	e = task->exitStatus; \
+	throw(); \
+    }
+
 
 extern bool main_exitRequested(void);
 
@@ -80,13 +88,10 @@ int taskRunner_runTask(struct taskRunner *task)
 {
     try {
 	for(int i = 0; i < task->nbrTasks; i++){
-	    task->nextTask[i](task, task->arg);
-	    if(task->exitStatus == -1) {
-		throw();
-	    }
+	    run(task->nextTask[i](task, task->arg));
 	}
-    } catch(...) {
-	printf("Caught error\n");
+    } catch(e) {
+	printf("Caught error %i\n", e);
     }
     return 0;
 }
