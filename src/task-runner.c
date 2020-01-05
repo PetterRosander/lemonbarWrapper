@@ -94,7 +94,7 @@ int taskRunner_runTask(struct taskRunner *task)
     } catch(e) {
 	switch(e){
 	    case DO_NOTHING:
-		lemonLog(DEBUG, "DO_NOTING: Recived error")
+		lemonLog(DEBUG, "DO_NOTHING: Recived error")
 		    break;
 	    case NON_FATAL:
 		lemonLog(DEBUG, "NON_FATAL: running clean up");

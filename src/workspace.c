@@ -131,7 +131,7 @@ private_ void workspace_addFd(
 	task->nfds++;
     } else {
 	// Failed to reconnect shorten poll time
-	task->poll_t = 100;
+	task->poll_t = 200;
     }
 }
 
