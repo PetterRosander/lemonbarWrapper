@@ -38,19 +38,31 @@ void runLoop(
 	struct lemonbar *lm)
 {
     struct pollfd fds[10];
-    nfds_t nfds = 4;
-    fds[0].fd = ws->fd;
-    fds[0].events = POLLIN;
-    fds[0].events |= POLLHUP;
-    fds[1].fd = cfg->eventFd;
-    fds[1].events = POLLIN;
-    fds[2].fd = lm->pipeRead;
-    fds[2].events = POLLIN;
-    fds[3].fd = pl->pluginsFd;
-    fds[3].events = POLLIN;
 
 
     do {
+	nfds_t nfds = 0;
+	if(ws->fd){
+	    fds[0].fd = ws->fd;
+	    fds[0].events = POLLIN | POLLHUP;
+	    nfds++;
+	}
+	if(cfg->eventFd){
+	    fds[1].fd = cfg->eventFd;
+	    fds[1].events = POLLIN;
+	    nfds++;
+	}
+	if(lm->pipeRead){
+	    fds[2].fd = lm->pipeRead;
+	    fds[2].events = POLLIN;
+	    nfds++;
+	}
+	if(pl->pluginsFd){
+	    fds[3].fd = pl->pluginsFd;
+	    fds[3].events = POLLIN;
+	    nfds++;
+	}
+
 	int readyfds = poll(fds, nfds, 10*MILLI);
 
 	if(readyfds > 0){
@@ -91,7 +103,25 @@ int taskRunner_runTask(struct taskRunner *task)
 	    run(task->nextTask[i](task, task->arg));
 	}
     } catch(e) {
-	printf("Caught error %i\n", e);
+	switch(e){
+	    case DO_NOTHING:
+		lemonLog(DEBUG, "DO_NOTING: Recived error")
+		break;
+	    case NON_FATAL:
+		lemonLog(DEBUG, "NON_FATAL: running clean up");
+		task->cleanTask(task, task->arg);
+		break;
+	    case CRITICAL:
+		lemonLog(DEBUG, "CRITICAL: running cleanTask");
+		task->cleanTask(task, task->arg);
+		break;
+	    case FATAL:
+		lemonLog(DEBUG, "FATAL: Recived no recoverable error exiting");
+		exit(EXIT_FAILURE);
+		break;
+	    default:
+		break;
+	}
     }
     return 0;
 }

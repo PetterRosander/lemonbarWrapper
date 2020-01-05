@@ -120,6 +120,12 @@ private_ void workspace_parseInitWorkspace(
 private_ void workspace_parseEvent(
 	struct taskRunner *,
 	void *);
+private_ void workspace_handleError(
+	struct taskRunner *,
+	void *);
+private_ void workspace_resetConnection(
+	struct taskRunner *,
+	void *);
 
 #endif /* __WORKSPACE__ */
 #undef __WORKSPACE__

@@ -5,6 +5,7 @@
 #define __LEMON__
 #include "lemonCommunication.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -135,9 +136,26 @@ private_ void lemon_pluginAction(
     struct lemonbar *lm = _lm_;
     char action[100] = {0};
     int r = read(lm->pipeRead, action, sizeof(action));
-    (void)r;
+    if(r < 0) {
+	lemonLog(ERROR, "Failed to command from lemonbar %s", strerror(errno));
+	task->exitStatus = -1;
+	return;
+    }
+
+    if(action[0] == 'x'){
+	task->exitStatus = 0;
+	return;
+    }
+
     int i = system(strtok(action, "\n"));
-    (void)i;
+
+    if(i < 0) {
+	lemonLog(ERROR, "Failed to run command %s - %s", action, 
+		strerror(errno));
+	task->exitStatus = -1;
+	return;
+    }
+
     task->exitStatus = 0;
 }
 
@@ -153,6 +171,7 @@ private_ void lemon_setupCommunication(
 	    &lm->pipeRead);
 
     if(lm->internal->pid < 0) {
+	lemonLog(ERROR, "Failed to fork of lemonbar %s", strerror(errno));
 	task->exitStatus = -1;
 	return;
     }
@@ -165,9 +184,11 @@ private_ void lemon_teardownCommunication(
 {
     struct lemonbar *lm = _lm_;
     int ret = pkill("lemonbar");
+    if(ret == -1){
+	lemonLog(DEBUG, "lemonbar not running?");
+    }
     close(lm->internal->pipeWrite);
     close(lm->pipeRead);
-    (void) ret;
     task->exitStatus = 0;
 }
 
@@ -237,11 +258,16 @@ private_ void lemon_sendLemonbar(
     size_t sentBytes = WRITE(lm->internal->pipeWrite, 
 	    lm->internal->lemonFormat, lm->internal->lenFormat);
     if(lm->internal->lenFormat != sentBytes){
+	lemonLog(ERROR, "Failed to send complete message %s", strerror(errno));
 	task->exitStatus = -1;
 	return;
     }
     sentBytes = WRITE(lm->internal->pipeWrite, "\n", 1);
-    (void)sentBytes;
+    if(1 != sentBytes){
+	lemonLog(ERROR, "Failed to send line ending %s", strerror(errno));
+	task->exitStatus = -1;
+	return;
+    }
 
     task->exitStatus = 0;
 }

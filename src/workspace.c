@@ -153,7 +153,7 @@ private_ void workspace_waitSocket(
     struct stat buf;
     if(stat(ws->i3path, &buf) != 0){
 	lemonLog(DEBUG, "%s does no exist yet - wait");
-	task->exitStatus = 0;
+	task->exitStatus = DO_NOTHING;
 	return;
     }
 
@@ -169,7 +169,7 @@ private_ void workspace_setupSocket(
 
     if(ws->fd < 0){
 	lemonLog(ERROR, "Failed to create socket %s", strerror(errno));
-	task->exitStatus = -1;
+	task->exitStatus = DO_NOTHING;
 	return;
     }
 
@@ -180,7 +180,8 @@ private_ void workspace_setupSocket(
     if(CONNECT(ws->fd, (const struct sockaddr *)&addr, sizeof(addr)) < 0){
 	lemonLog(ERROR, "Failed to connect with i3 socket %s", 
 		strerror(errno));
-	task->exitStatus = -1;
+	task->cleanTask = workspace_handleError;
+	task->exitStatus = NON_FATAL;
 	return;
     }
 
@@ -199,16 +200,18 @@ private_ void workspace_subscribeWorkspace(
     struct workspace *ws = _ws_;
     unsigned char subscribe[14];
     formatMessage(SUBSCRIBE, subscribe);
-    if(WRITE(ws->fd, subscribe, sizeof(subscribe)) == 0){
+    if(WRITE(ws->fd, subscribe, sizeof(subscribe)) < 0){
 	lemonLog(ERROR, "Failed write %s", strerror(errno));
-	task->exitStatus = -1;
+	task->cleanTask = workspace_resetConnection;
+	task->exitStatus = CRITICAL;
 	return;
     }
 
     char event[16] = "[ \"workspace\" ]";
-    if(WRITE(ws->fd, event, sizeof(event)) == 0){
+    if(WRITE(ws->fd, event, sizeof(event)) < 0){
 	lemonLog(ERROR, "Failed write %s", strerror(errno));
-	task->exitStatus = -1;
+	task->cleanTask = workspace_resetConnection;
+	task->exitStatus = CRITICAL;
 	return;
     }
 
@@ -216,7 +219,8 @@ private_ void workspace_subscribeWorkspace(
     int i = READ(ws->fd, (void *)&reply[0], 14);
     if(i < -1){
 	lemonLog(ERROR, "Failed read %s", strerror(errno));
-	task->exitStatus = -1;
+	task->cleanTask = workspace_resetConnection;
+	task->exitStatus = CRITICAL;
 	return;
     }
 
@@ -225,7 +229,8 @@ private_ void workspace_subscribeWorkspace(
     if(i < -1 || strcmp((char *)reply, "{\"success\":true}") != 0){
 	lemonLog(ERROR, "Failed to subscribe to i3 worskapce %s", 
 		strerror(errno));
-	task->exitStatus = -1;
+	task->cleanTask = workspace_resetConnection;
+	task->exitStatus = CRITICAL;
 	return;
     }
 
@@ -235,7 +240,6 @@ private_ void workspace_subscribeWorkspace(
     } else {
 	lemonLog(DEBUG, "Connected with i3 and subscribed succesfully");
     }
-
     task->exitStatus = 0;
 }
 
@@ -262,7 +266,8 @@ private_ void workspace_startWorkspace(
 
     if(i < 0){
 	lemonLog(ERROR, "Failed read %s", strerror(errno));
-	task->exitStatus = -1;
+	task->cleanTask = workspace_resetConnection;
+	task->exitStatus = CRITICAL;
 	return;
     }
 
@@ -272,9 +277,20 @@ private_ void workspace_startWorkspace(
 
     ws->internal->lenjson = len + 1;
     ws->internal->json = malloc(sizeof(char) * len + 1);
+    if(!ws->internal->json){
+	lemonLog(ERROR, "Failed malloc out of memory?!");
+	task->exitStatus = FATAL;
+	return;
+    }
 
     // TODO: DO IN WHILE LOOP
     ws->internal->lenjson = READ(ws->fd, ws->internal->json, len);
+    if(ws->internal->lenjson < 0){
+	lemonLog(ERROR, "Failed read %s", strerror(errno));
+	task->cleanTask = workspace_resetConnection;
+	task->exitStatus = CRITICAL;
+	return;
+    }
 
     task->exitStatus = 0;
 }
@@ -303,7 +319,8 @@ private_ void workspace_parseInitWorkspace(
 	};
 	lemonLog(ERROR, "jsmn faileld to parse json %s", 
 		JSMN_ERR[numberTokens]);
-	task->exitStatus = -1;
+	task->cleanTask = workspace_handleError;
+	task->exitStatus = NON_FATAL;
 	return;
     }
 
@@ -369,12 +386,18 @@ private_ void workspace_eventWorkspace(
     len += (uint32_t)event[7] << (8*1);
 
     ws->internal->json = malloc(sizeof(char)*len);
+    if(!ws->internal->json){
+	lemonLog(ERROR, "Failed malloc: %s");
+	task->exitStatus = FATAL;
+	return;
+    }
 
     ws->internal->lenjson = READ(ws->fd, ws->internal->json, len);
 
-    if(ws->internal->lenjson < len){
-	lemonLog(ERROR, "Did not read complete json");
-	task->exitStatus = 0;
+    if(ws->internal->lenjson < 0){
+	lemonLog(ERROR, "Read failed %s", strerror(errno));
+	task->cleanTask = workspace_resetConnection;
+	task->exitStatus = CRITICAL;
 	return;
     }
 
@@ -408,7 +431,8 @@ private_ void workspace_parseEvent(
 	};
 	lemonLog(ERROR, "jsmn faileld to parse json %s", 
 		JSMN_ERR[numberTokens]);
-	task->exitStatus = -1;
+	task->cleanTask = workspace_handleError;
+	task->exitStatus = NON_FATAL;
 	return;
     }
 
@@ -446,6 +470,41 @@ private_ void workspace_parseEvent(
     free(ws->internal->json);
     ws->internal->json = NULL;
     task->exitStatus = 0;
+}
+
+
+private_ void workspace_handleError(
+	struct taskRunner *task,
+	void *_ws_)
+{
+    struct workspace *ws = _ws_;
+    if(ws->internal->json){
+	lemonLog(DEBUG, "Failed to parse a message clearing it now");
+	free(ws->internal->json);
+	ws->internal->lenjson = 0;
+    }
+
+    if(ws->fd != 0 && ws->internal->reconnect){
+	lemonLog(DEBUG, "Reconnecting socket not ready - probably"
+			"a failed connection attempt");
+	close(ws->fd);
+	ws->fd = -1;
+    }
+}
+
+private_ void workspace_resetConnection(
+	struct taskRunner *task,
+	void *_ws_)
+{
+    struct workspace *ws = _ws_;
+    if(ws->internal->json){
+	lemonLog(DEBUG, "Clearing message during reconnect");
+	free(ws->internal->json);
+	ws->internal->lenjson = 0;
+    }
+
+    close(ws->fd);
+    ws->fd = -1;
 }
 
 /******************************************************************************
