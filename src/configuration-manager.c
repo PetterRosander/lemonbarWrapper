@@ -4,6 +4,7 @@
 #define __CONFIGURATION__
 #include "configuration-manager.h"
 
+#include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +15,15 @@
 #include "task-runner.h"
 #include "hashmap.h"
 #include "sys-utils.h"
+
+
+static inline void config_parseConfigValue(
+	char *, 
+	char *, 
+	char *, 
+	char *, 
+	ssize_t, 
+	ssize_t);
 /******************************************************************************
  * exported functions declaration
  *****************************************************************************/
@@ -176,21 +186,67 @@ private_ void config_readConfiguration(
     }
 
 
-    char line[1000] = {0};
+    char line[256] = {0};
+    char section[128] = {0};
+    ssize_t sectionLength = 0;
+    char outKey[128] = {0};
+    char outVal[128] = {0};
     for(int i = 0; i < NCONFIG_PARAM && 
 	    NULL != fgets(line, sizeof(line), fcfg); i++){
-	if(line[i] == '#') continue;
-	char *tok = &line[0];
-	char *nextTok = tok;
-	while(*nextTok != '=') nextTok++;
-	*nextTok = '\0';
-	nextTok++;
-	strcpy(cfg->mcfg.key[i], tok);
-	strcpy(cfg->mcfg.value[i], nextTok);
-	hashmap_put(cfg->mcfg.configMap, 
-		cfg->mcfg.key[i], (void *)cfg->mcfg.value[i]);	
+
+	if(line[0] == '#' || line[0] == '\n') continue;
+	ssize_t lineLength = strlen(line);
+	if(line[0] == '[' || line[lineLength] == ']'){
+	    memset(section, 0, sizeof(section));
+	    strncpy(section, &line[1], lineLength - 3);
+	    sectionLength = strlen(section);
+	} else {
+	    config_parseConfigValue(outKey, outVal, 
+		    section, line, lineLength, sectionLength);
+
+	   strcpy(cfg->mcfg.key[i], outKey);
+    	   strcpy(cfg->mcfg.value[i], outVal);
+    	   hashmap_put(cfg->mcfg.configMap, 
+    	   	cfg->mcfg.key[i], (void *)cfg->mcfg.value[i]);	
+	   memset(outVal, 0, sizeof(outVal));
+	   memset(outKey, 0, sizeof(outKey));
+	}
+    	memset(line, 0, sizeof(line));
     }
 
     task->exitStatus = FINE;
     fclose(fcfg);
+}
+
+static inline void config_parseConfigValue(
+	char *outKey,
+	char *outVal,
+	char *section, 
+	char *line, 
+	ssize_t lineLength,
+	ssize_t sectionLength)
+{
+    int i, j, k;
+    for(i = 0; i < lineLength; i++){
+	if(line[i] == '=') {
+	    line[i - 1] = '\0';
+	    break;
+	}
+	if(line[i] == ' '){
+	    line[i] = line[i + 1];
+	}
+    }
+
+    sprintf(outKey, "%.56s_%.56s", section, line);
+
+    for(k = i; k < lineLength; k++){
+	if(line[k] == ' ') continue;
+	if(line[k] == '=') continue;
+	break;
+    }
+
+    for(j = k; j < lineLength; j++){
+	if(line[j] == '\n') break;
+    }
+    strncpy(outVal, &line[k], j - k);
 }

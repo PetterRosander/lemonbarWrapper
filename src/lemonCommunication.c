@@ -213,6 +213,12 @@ private_ void lemon_teardownCommunication(
 	void *_lm_)
 {
     struct lemonbar *lm = _lm_;
+    int ret = pkill("lemonbar");
+
+    if(ret == -1){
+	lemonLog(DEBUG, "lemonbar not running?");
+    }
+
     int i = close(lm->internal->pipeWrite);
     if(i < 0){
 	lemonLog(ERROR, "failed to close lemonbar pipe write - "
@@ -225,10 +231,6 @@ private_ void lemon_teardownCommunication(
 		"%s", strerror(errno));
     }
     lm->pipeRead = -1;
-    int ret = pkill("lemonbar");
-    if(ret == -1){
-	lemonLog(DEBUG, "lemonbar not running?");
-    }
     task->exitStatus = FINE;
 }
 

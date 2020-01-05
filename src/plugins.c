@@ -43,7 +43,7 @@ struct plugins *plug_init(struct configuration *cfg)
 	    (void**)(&value));
     pl->plcfg._batteryCharging = value;
 
-    hashmap_get(cfg->mcfg.configMap, "LOW_BATTERY_WARNING",
+    hashmap_get(cfg->mcfg.configMap, "BATTERY_LOW_WARNING",
 	    (void**)(&value));
     pl->plcfg._warnPercent = value;
 
