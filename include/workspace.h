@@ -37,6 +37,7 @@ struct workspace
     char i3path[100];
     struct parsedJsonInformation json[NUMBER_WORKSPACES];
 
+    _workspace_entryPoint_ addFd;
     _workspace_entryPoint_ event;
     _workspace_entryPoint_ reconnect;
     _workspace_entryPoint_ setup;
@@ -91,7 +92,9 @@ struct workspace_internal__ {
 private_ void workspace_setup(
 	struct taskRunner *,
 	struct workspace *);
-
+private_ void workspace_addFd(
+	struct taskRunner *,
+	struct workspace *);
 private_ void workspace_entryPoint(
 	struct taskRunner *, 
 	struct workspace *);

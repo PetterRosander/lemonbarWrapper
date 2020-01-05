@@ -34,6 +34,8 @@ struct configuration {
     int eventFd;
     char configPath[100];
     struct moduleConfig mcfg;
+
+    _config_entryPoint_ addFd;
     _config_entryPoint_ setup;
     _config_entryPoint_ event;
 };
@@ -58,11 +60,17 @@ private_ void config_setup(
 private_ void config_event(
 	struct taskRunner *,
 	struct configuration *);
+private_ void config_addFd(
+	struct taskRunner *,
+	struct configuration *);
 
 private_ void config_handleEvents(
 	struct taskRunner *,
 	void *);
 private_ void config_addWatcher(
+	struct taskRunner *,
+	void *);
+private_ void config_closeWatch(
 	struct taskRunner *,
 	void *);
 private_ void config_readConfiguration(

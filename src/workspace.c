@@ -72,6 +72,7 @@ struct workspace *workspace_init(char *i3path)
     ws->setup = workspace_setup;
     ws->reconnect = workspace_reconnect;
     ws->event = workspace_entryPoint;
+    ws->addFd = workspace_addFd;
     strcpy(ws->i3path, i3path);
 
     return ws;
@@ -112,11 +113,34 @@ private_ void workspace_setup(
     taskRunner_runTask(task);
 }
 
+private_ void workspace_addFd(
+	struct taskRunner *task,
+	struct workspace *ws)
+{
+    /*
+     * If we are disconnected try to connect
+     * and add to fd
+     */
+    if(ws->internal->reconnect){
+	workspace_reconnect(task, ws);
+    }
+
+    if(ws->fd >= 0){
+	task->fds[task->nfds].fd = ws->fd;
+	task->fds[task->nfds].events = POLLIN | POLLHUP;
+	task->nfds++;
+    } else {
+	// Failed to reconnect shorten poll time
+	task->poll_t = 500;
+    }
+}
+
 private_ void workspace_reconnect(
 	struct taskRunner *task, 
 	struct workspace *ws)
 {
     close(ws->fd);
+    ws->fd = -1;
     ws->internal->reconnect = true;
     task->nextTask[0] = workspace_waitSocket;
     task->nextTask[1] = workspace_setupSocket;

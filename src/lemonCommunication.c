@@ -50,6 +50,7 @@ struct lemonbar *lemon_init(struct configuration *cfg)
     lm->internal = internal;
 
     lm->setup = lemon_setup;
+    lm->addFd = lemon_addFd;
     lm->render = lemon_reRender;
     lm->reconfigure = lemon_reconfigure;
     lm->action = lemon_action;
@@ -83,6 +84,21 @@ private_ void lemon_setup(
     task->nbrTasks = 4;
     task->arg = lm;
     taskRunner_runTask(task);
+}
+
+private_ void lemon_addFd(
+	struct taskRunner *task,
+	struct lemonbar *lm)
+{
+    if(lm->pipeRead < 0){
+	lemon_setup(task, lm);
+    }
+
+    if(lm->pipeRead >= 0){
+	task->fds[task->nfds].fd = lm->pipeRead;
+	task->fds[task->nfds].events = POLLIN;
+	task->nfds++;
+    }
 }
 
 private_ void lemon_reRender(

@@ -30,6 +30,7 @@ struct configuration *config_init(const char* path)
 
     strcpy(cfg->configPath, path);
     cfg->setup = config_setup;
+    cfg->addFd = config_setup;
     cfg->event = config_event;
     return cfg;
 
@@ -61,6 +62,22 @@ private_ void config_setup(
     taskRunner_runTask(task);
 }
 
+private_ void config_addFd(
+	struct taskRunner *task,
+	struct configuration *cfg)
+{
+    if(cfg->eventFd < 0){
+	config_setup(task, cfg);
+    }
+
+    if(cfg->eventFd >= 0){
+	task->fds[task->nfds].fd = cfg->eventFd;
+	task->fds[task->nfds].events = POLLIN;
+	task->nfds++;
+    }
+
+}
+
 private_ void config_event(
 	struct taskRunner *task,
 	struct configuration *cfg)
@@ -84,9 +101,9 @@ private_ void config_addWatcher(
     cfg->eventFd = inotify_init1(IN_NONBLOCK);
 
     if (cfg->eventFd == -1) {
-	lemonLog(ERROR, "Failed to create inofity fd %s", 
-			strerror(errno));
-	task->exitStatus = -1;
+	lemonLog(ERROR, "Failed to create inofity fd %s - "
+			 "hot reload disabled", strerror(errno));
+	task->exitStatus = DO_NOTHING;
 	return;
     }
 
@@ -94,13 +111,13 @@ private_ void config_addWatcher(
 	    IN_CLOSE_WRITE);
 
     if (wd == -1) {
-	lemonLog(ERROR, "Failed to add watcher inofity fd %s", 
-			strerror(errno));
-	task->exitStatus = -1;
+	lemonLog(ERROR, "Failed to add watcher inofity fd %s - ", 
+			"hot reload disabled", strerror(errno));
+	task->exitStatus = DO_NOTHING;
 	return;
     }
 
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 private_ void config_handleEvents(
@@ -113,22 +130,32 @@ private_ void config_handleEvents(
     ssize_t len = read(cfg->eventFd, (void*)&event, 
 	    sizeof(struct inotify_event));
     
-    if (len != sizeof(struct inotify_event)){
+    if (len < 0){
 	lemonLog(ERROR, "Failed to read inotify event - read size: %llu"
 	    "inotify_event size: %llu\n", len, sizeof(struct inotify_event));
-	task->exitStatus = -1;
+	task->cleanTask = config_closeWatch;
+	task->exitStatus = NON_FATAL;
 	return;
     }
 
     if (!(event.mask & IN_CLOSE_WRITE)){
 	lemonLog(DEBUG, "Did not recive IN_CLOSE_WRITE - unexpected");
-	task->exitStatus = 0;
+	task->exitStatus = FINE;
 	return;
     }
 
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
+
+private_ void config_closeWatch(
+	struct taskRunner *task,
+	void *_cfg_)
+{
+    struct configuration *cfg = _cfg_;
+    close(cfg->eventFd);
+    cfg->eventFd = -1;
+}
 
 private_ void config_readConfiguration(
 	struct taskRunner *task,
@@ -138,7 +165,7 @@ private_ void config_readConfiguration(
     FILE *fcfg = fopen(cfg->configPath, "r");
     if(fcfg == NULL){
 	lemonLog(DEBUG, "Failed to open configuration %s", cfg->configPath);
-	task->exitStatus = -1;
+	task->exitStatus = DO_NOTHING;
 	return;
     }
 
@@ -158,11 +185,10 @@ private_ void config_readConfiguration(
 	nextTok++;
 	strcpy(cfg->mcfg.key[i], tok);
 	strcpy(cfg->mcfg.value[i], nextTok);
-	int error = hashmap_put(cfg->mcfg.configMap, 
+	hashmap_put(cfg->mcfg.configMap, 
 		cfg->mcfg.key[i], (void *)cfg->mcfg.value[i]);	
-	(void) error;
     }
 
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
     fclose(fcfg);
 }

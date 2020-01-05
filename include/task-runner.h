@@ -3,11 +3,13 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+#include <poll.h>
 
 #include "sys-utils.h"
 #define MAX_TASK 10
 
 enum ERRORTYPE {
+    FINE = 0,
     DO_NOTHING = -1,
     NON_FATAL = -2,
     CRITICAL = -3,
@@ -21,6 +23,10 @@ typedef void (*clean)(struct taskRunner *, void *);
 
 struct taskRunner {
     struct log_t lp;
+
+    struct pollfd fds[10];
+    nfds_t nfds;
+    time_t poll_t;
 
     next nextTask;
     clean cleanTask;

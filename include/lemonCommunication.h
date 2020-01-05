@@ -33,7 +33,9 @@ struct lemonbar
     struct plugins *pl;
 
     struct lemonConfig lmcfg;
+
     _lemonbar_entryPoint_ setup;
+    _lemonbar_entryPoint_ addFd;
     _lemonbar_entryPoint_ render;
     _lemonbar_entryPoint_ reconfigure;
     _lemonbar_entryPoint_ action;
@@ -74,6 +76,9 @@ struct lemon_internal__ {
 #endif
 
 private_ void lemon_setup(
+	struct taskRunner *,
+	struct lemonbar *);
+private_ void lemon_addFd(
 	struct taskRunner *,
 	struct lemonbar *);
 private_ void lemon_reRender(

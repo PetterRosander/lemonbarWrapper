@@ -48,6 +48,7 @@ struct plugins *plug_init(struct configuration *cfg)
     pl->plcfg._warnPercent = value;
 
     pl->setup = plug_setup;
+    pl->addFd = plug_addFd;
     pl->reconfigure = plug_reconfigure;
     pl->normal = plug_runNormal;
     pl->event = plug_runEvent;
@@ -78,6 +79,20 @@ private_ void plug_setup(
     task->nbrTasks = 2;
     task->arg = pl;
     taskRunner_runTask(task);
+}
+
+private_ void plug_addFd(
+	struct taskRunner *task,
+	struct plugins *pl)
+{
+    if(pl->pluginsFd < 0){
+	plug_setup(task, pl);
+    }
+    if(pl->pluginsFd >= 0){
+	task->fds[task->nfds].fd = pl->pluginsFd;
+	task->fds[task->nfds].events = POLLIN;
+	task->nfds++;
+    }
 }
 
 private_ void plug_reconfigure(

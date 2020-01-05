@@ -62,6 +62,7 @@ struct plugins {
     bool shutdownOrLock;
 
     _plugins_entryPoint_ setup;
+    _plugins_entryPoint_ addFd;
     _plugins_entryPoint_ reconfigure;
     _plugins_entryPoint_ event;
     _plugins_entryPoint_ normal;
@@ -94,6 +95,9 @@ private_ void plug_runNormal(
 	struct taskRunner *,
 	struct plugins *);
 private_ void plug_runEvent(
+	struct taskRunner *,
+	struct plugins *);
+private_ void plug_addFd(
 	struct taskRunner *,
 	struct plugins *);
 

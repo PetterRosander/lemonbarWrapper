@@ -37,60 +37,54 @@ void runLoop(
 	struct configuration *cfg,
 	struct lemonbar *lm)
 {
-    struct pollfd fds[10];
 
 
     do {
-	nfds_t nfds = 0;
-	if(ws->fd){
-	    fds[0].fd = ws->fd;
-	    fds[0].events = POLLIN | POLLHUP;
-	    nfds++;
-	}
-	if(cfg->eventFd){
-	    fds[1].fd = cfg->eventFd;
-	    fds[1].events = POLLIN;
-	    nfds++;
-	}
-	if(lm->pipeRead){
-	    fds[2].fd = lm->pipeRead;
-	    fds[2].events = POLLIN;
-	    nfds++;
-	}
-	if(pl->pluginsFd){
-	    fds[3].fd = pl->pluginsFd;
-	    fds[3].events = POLLIN;
-	    nfds++;
-	}
+	task->poll_t = 10*MILLI;
+	task->nfds = 0;
 
-	int readyfds = poll(fds, nfds, 10*MILLI);
+
+	/* 
+	 * TODO: try to reinit fds that are unavailable as of 
+	 * now and if the reinit was succesfull add them to poll
+	 */
+	ws->addFd(task, ws);
+	cfg->addFd(task, cfg);
+	lm->addFd(task, lm);
+	pl->addFd(task, pl);
+
+
+	int readyfds = poll(task->fds, task->nfds, task->poll_t);
 
 	if(readyfds > 0){
-	    if(fds[0].revents){
-		if((fds[0].revents & POLLHUP) == POLLHUP){
-		    usleep(100000);
-		    ws->reconnect(task, ws);
-		    fds[0].fd = ws->fd;
-		} else if((fds[0].revents & POLLIN) == POLLIN){
-		    ws->event(task, ws);
+	    for(int i = 0; i < task->nfds; i++){
+		if(ws->fd == task->fds[i].fd){
+		    if((task->fds[i].revents & POLLHUP) == POLLHUP){
+			ws->reconnect(task, ws);
+		    } else if((task->fds[i].revents & POLLIN) == POLLIN){
+			ws->event(task, ws);
+		    }
+		} else if (task->fds[i].fd == cfg->eventFd) {
+		    if((task->fds[i].revents & POLLIN) == POLLIN){
+			cfg->event(task, cfg);
+			pl->reconfigure(task, pl);
+			lm->reconfigure(task, lm);
+		    }
+		} else if(task->fds[i].fd == lm->pipeRead){
+		    if((task->fds[i].revents & POLLIN) == POLLIN){
+			lm->action(task, lm);
+			pl->shutdownOrLock = false;
+		    }
+		} else if(task->fds[i].fd == pl->pluginsFd){
+		    if((task->fds[i].revents & POLLIN) == POLLIN){
+			pl->event(task, pl);
+		    }
 		}
 	    }
-	    if((fds[1].revents & POLLIN) == POLLIN){
-		cfg->event(task, cfg);
-		pl->reconfigure(task, pl);
-		lm->reconfigure(task, lm);
-	    }
-	    if((fds[2].revents & POLLIN) == POLLIN){
-		lm->action(task, lm);
-		pl->shutdownOrLock = false;
-	    }
-	    if((fds[3].revents & POLLIN) == POLLIN){
-		pl->event(task, pl);
-	    }
-	}
 
-	pl->normal(task, pl);
-	lm->render(task, lm);
+	    pl->normal(task, pl);
+	    lm->render(task, lm);
+	}
 
     } while(!main_exitRequested());
 
@@ -106,7 +100,7 @@ int taskRunner_runTask(struct taskRunner *task)
 	switch(e){
 	    case DO_NOTHING:
 		lemonLog(DEBUG, "DO_NOTING: Recived error")
-		break;
+		    break;
 	    case NON_FATAL:
 		lemonLog(DEBUG, "NON_FATAL: running clean up");
 		task->cleanTask(task, task->arg);
@@ -123,5 +117,5 @@ int taskRunner_runTask(struct taskRunner *task)
 		break;
 	}
     }
-    return 0;
+    return e;
 }
