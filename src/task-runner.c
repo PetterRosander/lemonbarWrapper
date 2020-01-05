@@ -77,9 +77,9 @@ void runLoop(
 		}
 	    }
 
-	    pl->normal(task, pl);
-	    lm->render(task, lm);
 	}
+	pl->normal(task, pl);
+	lm->render(task, lm);
 
     } while(!main_exitRequested());
 
