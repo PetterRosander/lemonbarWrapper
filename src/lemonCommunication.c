@@ -183,7 +183,7 @@ private_ void lemon_handleError(
 {
     struct lemonbar *lm = _lm_;
     close(lm->internal->pipeWrite);
-    lm->internal->pipeWrite = 1;
+    lm->internal->pipeWrite = -1;
     close(lm->pipeRead);
     lm->pipeRead = -1;
 
@@ -213,12 +213,22 @@ private_ void lemon_teardownCommunication(
 	void *_lm_)
 {
     struct lemonbar *lm = _lm_;
+    int i = close(lm->internal->pipeWrite);
+    if(i < 0){
+	lemonLog(ERROR, "failed to close lemonbar pipe write - "
+		"%s", strerror(errno));
+    }
+    lm->internal->pipeWrite = -1;
+    i = close(lm->pipeRead);
+    if(i < 0){
+	lemonLog(ERROR, "failed to close lemonbar pipe read - "
+		"%s", strerror(errno));
+    }
+    lm->pipeRead = -1;
     int ret = pkill("lemonbar");
     if(ret == -1){
 	lemonLog(DEBUG, "lemonbar not running?");
     }
-    close(lm->internal->pipeWrite);
-    close(lm->pipeRead);
     task->exitStatus = FINE;
 }
 

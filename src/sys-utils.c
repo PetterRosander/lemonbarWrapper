@@ -109,6 +109,9 @@ pid_t popen2(
 	exit(1);
     }
 
+    // Avoid leaking file desriptors...
+    close(p_stdin[PIPE_READ]);
+    close(p_stdout[PIPE_WRITE]);
     if (infp == NULL){
 	close(p_stdin[PIPE_WRITE]);
     } else{

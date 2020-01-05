@@ -83,7 +83,6 @@ private_ void config_event(
 	struct taskRunner *task,
 	struct configuration *cfg)
 {
-    lemonLog(DEBUG, "Reconfigure");
     task->nextTask[0] = config_handleEvents;
     task->nextTask[1] = config_readConfiguration;
     task->nbrTasks = 2;
@@ -98,7 +97,6 @@ private_ void config_addWatcher(
 	struct taskRunner *task,
 	void *_cfg_)
 {
-
     struct configuration *cfg = _cfg_;
     cfg->eventFd = inotify_init1(IN_NONBLOCK);
 
@@ -109,10 +107,10 @@ private_ void config_addWatcher(
 	return;
     }
 
-    int wd = inotify_add_watch(cfg->eventFd, cfg->configPath, 
+    cfg->watchFd = inotify_add_watch(cfg->eventFd, cfg->configPath, 
 	    IN_CLOSE_WRITE);
 
-    if (wd == -1) {
+    if (cfg->watchFd == -1) {
 	lemonLog(ERROR, "Failed to add watcher inofity fd %s - ", 
 			"hot reload disabled", strerror(errno));
 	task->exitStatus = DO_NOTHING;
@@ -156,7 +154,9 @@ private_ void config_closeWatch(
 {
     struct configuration *cfg = _cfg_;
     close(cfg->eventFd);
+    close(cfg->watchFd);
     cfg->eventFd = -1;
+    cfg->watchFd = -1;
 }
 
 private_ void config_readConfiguration(

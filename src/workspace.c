@@ -131,7 +131,7 @@ private_ void workspace_addFd(
 	task->nfds++;
     } else {
 	// Failed to reconnect shorten poll time
-	task->poll_t = 500;
+	task->poll_t = 100;
     }
 }
 
@@ -176,7 +176,7 @@ private_ void workspace_waitSocket(
 
     struct stat buf;
     if(stat(ws->i3path, &buf) != 0){
-	lemonLog(DEBUG, "%s does no exist yet - wait");
+	lemonLog(DEBUG, "%s does no exist yet - wait", ws->i3path);
 	task->exitStatus = DO_NOTHING;
 	return;
     }

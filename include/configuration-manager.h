@@ -32,6 +32,7 @@ struct moduleConfig {
 
 struct configuration {
     int eventFd;
+    int watchFd;
     char configPath[100];
     struct moduleConfig mcfg;
 

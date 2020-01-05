@@ -1,5 +1,6 @@
 #define _XOPEN_SOURCE
 #define _DEFAULT_SOURCE
+#include <sys/wait.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
@@ -31,6 +32,11 @@ static void signalHandler(int sig)
 {
     switch(sig){
 	case SIGCHLD:
+	    {
+		int status = 0;
+		pid_t pid = wait(&status);
+		(void)pid;
+	    }
 	    break;
 	case SIGINT:
 	case SIGTERM:
