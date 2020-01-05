@@ -30,7 +30,7 @@ struct configuration *config_init(const char* path)
 
     strcpy(cfg->configPath, path);
     cfg->setup = config_setup;
-    cfg->addFd = config_setup;
+    cfg->addFd = config_addFd;
     cfg->event = config_event;
     return cfg;
 
@@ -67,6 +67,7 @@ private_ void config_addFd(
 	struct configuration *cfg)
 {
     if(cfg->eventFd < 0){
+	lemonLog(ERROR, "lost connection to notify_watch");
 	config_setup(task, cfg);
     }
 
@@ -82,6 +83,7 @@ private_ void config_event(
 	struct taskRunner *task,
 	struct configuration *cfg)
 {
+    lemonLog(DEBUG, "Reconfigure");
     task->nextTask[0] = config_handleEvents;
     task->nextTask[1] = config_readConfiguration;
     task->nbrTasks = 2;
