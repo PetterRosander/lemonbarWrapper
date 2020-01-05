@@ -153,13 +153,15 @@ private_ void lemon_pluginAction(
     char action[100] = {0};
     int r = read(lm->pipeRead, action, sizeof(action));
     if(r < 0) {
-	lemonLog(ERROR, "Failed to command from lemonbar %s", strerror(errno));
-	task->exitStatus = -1;
+	lemonLog(ERROR, "Failed to read command from lemonbar %s",
+	       	strerror(errno));
+	task->exitStatus = CRITICAL;
+	task->cleanTask = lemon_handleError;
 	return;
     }
 
     if(action[0] == 'x'){
-	task->exitStatus = 0;
+	task->exitStatus = FINE;
 	return;
     }
 
@@ -168,13 +170,25 @@ private_ void lemon_pluginAction(
     if(i < 0) {
 	lemonLog(ERROR, "Failed to run command %s - %s", action, 
 		strerror(errno));
-	task->exitStatus = -1;
+	task->exitStatus = DO_NOTHING;
 	return;
     }
 
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
+private_ void lemon_handleError(
+	struct taskRunner *task,
+	void *_lm_)
+{
+    struct lemonbar *lm = _lm_;
+    close(lm->internal->pipeWrite);
+    lm->internal->pipeWrite = 1;
+    close(lm->pipeRead);
+    lm->pipeRead = -1;
+
+    lemon_setup(task, lm);
+}
 
 private_ void lemon_setupCommunication(
 	struct taskRunner *task,
@@ -188,10 +202,10 @@ private_ void lemon_setupCommunication(
 
     if(lm->internal->pid < 0) {
 	lemonLog(ERROR, "Failed to fork of lemonbar %s", strerror(errno));
-	task->exitStatus = -1;
+	task->exitStatus = FATAL;
 	return;
     }
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 private_ void lemon_teardownCommunication(
@@ -205,7 +219,7 @@ private_ void lemon_teardownCommunication(
     }
     close(lm->internal->pipeWrite);
     close(lm->pipeRead);
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 private_ void lemon_formatWorkspace(
@@ -235,7 +249,7 @@ private_ void lemon_formatWorkspace(
     sprintf(&lm->internal->lemonFormat[0] + currLen - 3, "\n");
     currLen -= 2;
     lm->internal->lenFormat = currLen;
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 private_ void lemon_formatNormal(
@@ -248,7 +262,7 @@ private_ void lemon_formatNormal(
     lm->internal->lenFormat += sprintf(
 	    &lm->internal->lemonFormat[lm->internal->lenFormat - 1], 
 	    "%%{r}%s", pl->pluginsFormatted);
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 private_ void lemon_lockOrShutdown(
@@ -263,7 +277,7 @@ private_ void lemon_lockOrShutdown(
 	       	" | %%{A:i3-msg exit:}\uf29d%%{A}"
 	       	" | %%{A:shutdown -h now:}\uf011%%{A}"
 		"%%{r}%%{A:x:}x%%{A}");
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 private_ void lemon_sendLemonbar(
@@ -273,17 +287,19 @@ private_ void lemon_sendLemonbar(
     struct lemonbar *lm = _lm_;
     size_t sentBytes = WRITE(lm->internal->pipeWrite, 
 	    lm->internal->lemonFormat, lm->internal->lenFormat);
-    if(lm->internal->lenFormat != sentBytes){
-	lemonLog(ERROR, "Failed to send complete message %s", strerror(errno));
-	task->exitStatus = -1;
+    if(lm->internal->lenFormat < 0){
+	lemonLog(ERROR, "Failed to send message %s", strerror(errno));
+	task->exitStatus = CRITICAL;
+	task->cleanTask = lemon_handleError;
 	return;
     }
     sentBytes = WRITE(lm->internal->pipeWrite, "\n", 1);
-    if(1 != sentBytes){
+    if(sentBytes < 0){
 	lemonLog(ERROR, "Failed to send line ending %s", strerror(errno));
-	task->exitStatus = -1;
+	task->exitStatus = CRITICAL;
+	task->cleanTask = lemon_handleError;
 	return;
     }
 
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }

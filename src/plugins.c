@@ -144,7 +144,7 @@ private_ void plug_lockOrShutdown(
 	pl->shutdownOrLock = true;
     }
 
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 private_ void plug_configure(
@@ -167,7 +167,7 @@ private_ void plug_configure(
 	    pl->plcfg.notifyWarn[i] = true;
 	}
     }
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 
 }
 
@@ -185,7 +185,7 @@ private_ void plug_setupPipe(
     if(stat(readPipe, &st) != 0){
 	if(mkfifo(readPipe, 0666) == -1){
 	    lemonLog(ERROR, "Failed to create pipe %s", strerror(errno));
-	    task->exitStatus = -1;
+	    task->exitStatus = DO_NOTHING;
 	    return;
 	}
     } else {
@@ -196,18 +196,18 @@ private_ void plug_setupPipe(
     pl->pluginsFd = open(readPipe, O_RDWR | O_NONBLOCK);
     if(pl->pluginsFd < 0){
 	lemonLog(ERROR, "failed to open pipe %s", strerror(errno));
-	task->exitStatus = -1;
+	task->exitStatus = DO_NOTHING;
 	return;
     }
 
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 private_ void plug_startUserPlugins(
 	struct taskRunner *task,
 	void *_pl_)
 {
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 #define FBATTERY_CAPACITY "/sys/class/power_supply/BAT0/capacity"
@@ -274,7 +274,7 @@ private_ void plug_getBattery(
 	}
     }
 
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 #define FWIFI_LINK "/proc/net/wireless"
@@ -310,7 +310,7 @@ private_ void plug_getWifi(
     }
 
     fclose(fWifi);
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 private_ void plug_getTime(
@@ -326,6 +326,6 @@ private_ void plug_getTime(
     strftime(pl->td.bufTime, 6, "%H:%M", tm_info);
     pl->pluginsLen += sprintf(&pl->pluginsFormatted[pl->pluginsLen], 
 	    "%s ", pl->td.bufTime);
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 

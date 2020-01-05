@@ -43,11 +43,6 @@ void runLoop(
 	task->poll_t = 10*MILLI;
 	task->nfds = 0;
 
-
-	/* 
-	 * TODO: try to reinit fds that are unavailable as of 
-	 * now and if the reinit was succesfull add them to poll
-	 */
 	ws->addFd(task, ws);
 	cfg->addFd(task, cfg);
 	lm->addFd(task, lm);

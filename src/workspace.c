@@ -181,7 +181,7 @@ private_ void workspace_waitSocket(
 	return;
     }
 
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 private_ void workspace_setupSocket(
@@ -209,7 +209,7 @@ private_ void workspace_setupSocket(
 	return;
     }
 
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 /*
@@ -264,7 +264,7 @@ private_ void workspace_subscribeWorkspace(
     } else {
 	lemonLog(DEBUG, "Connected with i3 and subscribed succesfully");
     }
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 /*
@@ -316,7 +316,7 @@ private_ void workspace_startWorkspace(
 	return;
     }
 
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 /*
@@ -383,7 +383,7 @@ private_ void workspace_parseInitWorkspace(
     free(ws->internal->json);
     ws->internal->json = NULL;
     ws->internal->lenjson = 0;
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 /*
@@ -401,7 +401,8 @@ private_ void workspace_eventWorkspace(
 
     if(i < 0){
 	lemonLog(ERROR, "Failed to write %s", strerror(errno));
-	task->exitStatus = -1;
+	task->exitStatus = CRITICAL;
+	task->cleanTask = workspace_resetConnection;
 	return;
     }
 
@@ -425,7 +426,7 @@ private_ void workspace_eventWorkspace(
 	return;
     }
 
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 
@@ -493,7 +494,7 @@ private_ void workspace_parseEvent(
 
     free(ws->internal->json);
     ws->internal->json = NULL;
-    task->exitStatus = 0;
+    task->exitStatus = FINE;
 }
 
 

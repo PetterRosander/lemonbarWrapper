@@ -94,6 +94,9 @@ private_ void lemon_action(
 private_ void lemon_pluginAction(
 	struct taskRunner *,
 	void *);
+private_ void lemon_handleError(
+	struct taskRunner *,
+	void *);
 private_ void lemon_lockOrShutdown(
 	struct taskRunner *,
 	void * );
