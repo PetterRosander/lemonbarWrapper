@@ -196,7 +196,7 @@ private_ void config_readConfiguration(
 
 	if(line[0] == '#' || line[0] == '\n') continue;
 	ssize_t lineLength = strlen(line);
-	if(line[0] == '[' || line[lineLength] == ']'){
+	if(line[0] == '[' && line[lineLength - 2] == ']'){
 	    memset(section, 0, sizeof(section));
 	    strncpy(section, &line[1], lineLength - 3);
 	    sectionLength = strlen(section);
