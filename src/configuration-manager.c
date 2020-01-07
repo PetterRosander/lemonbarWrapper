@@ -191,8 +191,9 @@ private_ void config_readConfiguration(
     ssize_t sectionLength = 0;
     char outKey[128] = {0};
     char outVal[128] = {0};
-    for(int i = 0; i < NCONFIG_PARAM && 
-	    NULL != fgets(line, sizeof(line), fcfg); i++){
+
+    int i = 0;
+    while(i < NCONFIG_PARAM && NULL != fgets(line, sizeof(line), fcfg)){
 
 	if(line[0] == '#' || line[0] == '\n') continue;
 	ssize_t lineLength = strlen(line);
@@ -210,6 +211,7 @@ private_ void config_readConfiguration(
     	   	cfg->mcfg.key[i], (void *)cfg->mcfg.value[i]);	
 	   memset(outVal, 0, sizeof(outVal));
 	   memset(outKey, 0, sizeof(outKey));
+	   i++;
 	}
     	memset(line, 0, sizeof(line));
     }

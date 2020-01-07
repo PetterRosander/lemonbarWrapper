@@ -145,7 +145,7 @@ int main(int argc, char *argv[])
     }
     cfg->setup(task, cfg);
     
-    struct workspace *ws = workspace_init(i3path);
+    struct workspace *ws = workspace_init(i3path, cfg);
     if(ws == NULL){
 	lemonLog(ERROR, "Failed create workspace %s", strerror(errno));
     }

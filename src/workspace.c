@@ -20,6 +20,7 @@
 
 #define NBR_JSMN_TOKENS 1024
 #include "task-runner.h"
+#include "configuration-manager.h"
 
 /******************************************************************************
  * inlined function declarations
@@ -50,7 +51,7 @@ static inline void parseChangeempty(
  * Setup function used to access
  * the functionallity in this module
  */
-struct workspace *workspace_init(char *i3path)
+struct workspace *workspace_init(char *i3path, struct configuration *cfg)
 {
 
     struct workspace *ws = calloc(1, sizeof(struct workspace)); 
@@ -68,6 +69,12 @@ struct workspace *workspace_init(char *i3path)
 	free(ws);
 	return NULL;
     }
+    
+    char *value = NULL;
+    hashmap_get(cfg->mcfg.configMap, "WORKSPACE_FOCUSED_COLOR", (void**)(&value));
+    ws->focusedColor = value;
+    hashmap_get(cfg->mcfg.configMap, "WORKSPACE_UNFOCUSED_COLOR", (void**)(&value));
+    ws->unfocusedColor = value;
 
     ws->setup = workspace_setup;
     ws->reconnect = workspace_reconnect;
@@ -108,7 +115,8 @@ private_ void workspace_setup(
     task->nextTask[2] = workspace_subscribeWorkspace;
     task->nextTask[3] = workspace_startWorkspace;
     task->nextTask[4] = workspace_parseInitWorkspace;
-    task->nbrTasks = 5;
+    task->nextTask[5] = workspace_formatWorkspace;
+    task->nbrTasks = 6;
     task->arg = ws;
     taskRunner_runTask(task);
 }
@@ -156,7 +164,8 @@ private_ void workspace_entryPoint(
 {
     task->nextTask[0] = workspace_eventWorkspace;
     task->nextTask[1] = workspace_parseEvent;
-    task->nbrTasks = 2;
+    task->nextTask[2] = workspace_formatWorkspace;
+    task->nbrTasks = 3;
     task->arg = ws;
     taskRunner_runTask(task);
 }
@@ -477,6 +486,11 @@ private_ void workspace_parseEvent(
 	event = EMPTY;
     }
 
+    /*
+     * Something is wrong when intermediate 
+     * workspaces is not there at start i.e.,
+     * 1,2,3 works but 1,3,4 wont' work properly...
+     */
     switch(event){
 	case INIT:
 	    parseChangeinit(parser, token, numberTokens, ws);
@@ -495,6 +509,32 @@ private_ void workspace_parseEvent(
     free(ws->internal->json);
     ws->internal->json = NULL;
     task->exitStatus = FINE;
+}
+
+private_ void workspace_formatWorkspace(
+	struct taskRunner *task,
+	void *_ws_)
+{
+    struct workspace *ws = _ws_;
+
+    int currLen = 0;
+    currLen += sprintf(ws->workspaceFormatted, "%%{l}");
+    for(int i = 0; i < NUMBER_WORKSPACES; i++){
+	if(ws->json[i].active != true){
+	    continue;
+	}
+	if(ws->json[i].focused == true){
+	    currLen += sprintf(
+		    &ws->workspaceFormatted[0] + currLen, 
+		    "%%{B#%s} %s %%{B-}", ws->focusedColor,
+		    ws->json[i].name);
+	} else {
+	    currLen += 
+		sprintf(&ws->workspaceFormatted[0] + currLen,
+		       	"%%{B#%s} %s %%{B-}", ws->unfocusedColor,
+			ws->json[i].name);
+	} 
+    }
 }
 
 
@@ -531,6 +571,7 @@ private_ void workspace_resetConnection(
     close(ws->fd);
     ws->fd = -1;
 }
+
 
 /******************************************************************************
  * Inlined small functions (should only be used once)

@@ -78,10 +78,9 @@ private_ void lemon_setup(
 	struct taskRunner *task,
 	struct lemonbar *lm){
     task->nextTask[0] = lemon_setupCommunication;
-    task->nextTask[1] = lemon_formatWorkspace;
-    task->nextTask[2] = lemon_formatNormal;
-    task->nextTask[3] = lemon_sendLemonbar;
-    task->nbrTasks = 4;
+    task->nextTask[1] = lemon_formatNormal;
+    task->nextTask[2] = lemon_sendLemonbar;
+    task->nbrTasks = 3;
     task->arg = lm;
     taskRunner_runTask(task);
 }
@@ -110,10 +109,9 @@ private_ void lemon_reRender(
 	task->nextTask[1] = lemon_sendLemonbar;
 	task->nbrTasks = 2;
     } else {
-	task->nextTask[0] = lemon_formatWorkspace;
-	task->nextTask[1] = lemon_formatNormal;
-	task->nextTask[2] = lemon_sendLemonbar;
-	task->nbrTasks = 3;
+	task->nextTask[0] = lemon_formatNormal;
+	task->nextTask[1] = lemon_sendLemonbar;
+	task->nbrTasks = 2;
     }
 	
     taskRunner_runTask(task);
@@ -124,10 +122,9 @@ private_ void lemon_reconfigure(
 	struct lemonbar *lm){
     task->nextTask[0] = lemon_teardownCommunication;
     task->nextTask[1] = lemon_setupCommunication;
-    task->nextTask[2] = lemon_formatWorkspace;
-    task->nextTask[3] = lemon_formatNormal;
-    task->nextTask[4] = lemon_sendLemonbar;
-    task->nbrTasks = 5;
+    task->nextTask[2] = lemon_formatNormal;
+    task->nextTask[3] = lemon_sendLemonbar;
+    task->nbrTasks = 4;
     task->arg = lm;
     taskRunner_runTask(task);
 }
@@ -234,46 +231,18 @@ private_ void lemon_teardownCommunication(
     task->exitStatus = FINE;
 }
 
-private_ void lemon_formatWorkspace(
-	struct taskRunner *task,
-	void *_lm_)
-{
-    struct lemonbar *lm = _lm_;
-    struct workspace *ws = lm->ws;
-
-    int currLen = 0;
-    currLen += sprintf(lm->internal->lemonFormat, "%%{c}");
-    for(int i = 0; i < NUMBER_WORKSPACES; i++){
-	if(ws->json[i].active != true){
-	    continue;
-	}
-	if(ws->json[i].focused == true){
-	    currLen += sprintf(
-		    &lm->internal->lemonFormat[0] + currLen, 
-		    "%%{+u}%%{U#0FF} %s %%{U-}%%{-u} | ", 
-		    ws->json[i].name);
-	} else if (i != NUMBER_WORKSPACES - 1) {
-	    currLen += 
-		sprintf(&lm->internal->lemonFormat[0] + currLen,
-		       	"%s | ", ws->json[i].name);
-	} 
-    }
-    sprintf(&lm->internal->lemonFormat[0] + currLen - 3, "\n");
-    currLen -= 2;
-    lm->internal->lenFormat = currLen;
-    task->exitStatus = FINE;
-}
-
 private_ void lemon_formatNormal(
 	struct taskRunner *task,
 	void *_lm_)
 {
     struct lemonbar *lm = _lm_;
     struct plugins *pl = lm->pl;
+    struct workspace *ws = lm->ws;
+    lm->internal->lenFormat = 0;
 
     lm->internal->lenFormat += sprintf(
-	    &lm->internal->lemonFormat[lm->internal->lenFormat - 1], 
-	    "%%{r}%s", pl->pluginsFormatted);
+	    lm->internal->lemonFormat, 
+	    "%s %%{r}%s", ws->workspaceFormatted, pl->pluginsFormatted);
     task->exitStatus = FINE;
 }
 
@@ -299,7 +268,7 @@ private_ void lemon_sendLemonbar(
     struct lemonbar *lm = _lm_;
     size_t sentBytes = WRITE(lm->internal->pipeWrite, 
 	    lm->internal->lemonFormat, lm->internal->lenFormat);
-    if(lm->internal->lenFormat < 0){
+    if(sentBytes < 0){
 	lemonLog(ERROR, "Failed to send message %s", strerror(errno));
 	task->exitStatus = CRITICAL;
 	task->cleanTask = lemon_handleError;
@@ -307,10 +276,10 @@ private_ void lemon_sendLemonbar(
     }
     sentBytes = WRITE(lm->internal->pipeWrite, "\n", 1);
     if(sentBytes < 0){
-	lemonLog(ERROR, "Failed to send line ending %s", strerror(errno));
-	task->exitStatus = CRITICAL;
-	task->cleanTask = lemon_handleError;
-	return;
+        lemonLog(ERROR, "Failed to send line ending %s", strerror(errno));
+        task->exitStatus = CRITICAL;
+        task->cleanTask = lemon_handleError;
+        return;
     }
 
     task->exitStatus = FINE;

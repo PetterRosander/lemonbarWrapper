@@ -11,7 +11,7 @@ extern "C" {
 
 #include "hashmap.h"
 #include "task-runner.h"
-#define NCONFIG_PARAM 10
+#define NCONFIG_PARAM 12
 
 /******************************************************************************
  * Declarations
@@ -26,8 +26,8 @@ typedef void (*_config_entryPoint_)(struct taskRunner *, struct configuration *)
 
 struct moduleConfig {
     map_t configMap;
-    char key[NCONFIG_PARAM][256];
-    char value[NCONFIG_PARAM][256];
+    char key[NCONFIG_PARAM][56];
+    char value[NCONFIG_PARAM][56];
 };
 
 struct configuration {

@@ -35,6 +35,9 @@ struct workspace
 {
     int fd;
     char i3path[100];
+    char *focusedColor;
+    char *unfocusedColor;
+    char workspaceFormatted[256];
     struct parsedJsonInformation json[NUMBER_WORKSPACES];
 
     _workspace_entryPoint_ addFd;
@@ -47,7 +50,7 @@ struct workspace
 /******************************************************************************
  * Exported function
  *****************************************************************************/
-struct workspace *workspace_init(char *);
+struct workspace *workspace_init(char *, struct configuration *);
 int workspace_destroy(struct workspace *);
 
 /******************************************************************************
@@ -127,6 +130,9 @@ private_ void workspace_handleError(
 	struct taskRunner *,
 	void *);
 private_ void workspace_resetConnection(
+	struct taskRunner *,
+	void *);
+private_ void workspace_formatWorkspace(
 	struct taskRunner *,
 	void *);
 

@@ -24,29 +24,27 @@ typedef void (*_plugins_entryPoint_)(struct taskRunner *, struct plugins *);
  *****************************************************************************/
 struct battery {
     uint8_t capacity;
-};
 
-struct wifi {
-    uint8_t link;
-};
-
-struct timeofday {
-    time_t time;
-    char   bufTime[6];
-};
-
-struct pluginConfig {
-    wchar_t wifiSymbol;
     wchar_t batteryNormal;
     wchar_t batteryCharging;
-
-    char *_wifiSymbol;
+    bool notifyWarn[MAX_BATTERY_WARN];
+    uint8_t warnPercent[MAX_BATTERY_WARN];
+    
     char *_batteryNormal;
     char *_batteryCharging;
     char *_warnPercent;
+};
 
-    bool notifyWarn[MAX_BATTERY_WARN];
-    uint8_t warnPercent[MAX_BATTERY_WARN];
+struct wifi {
+    wchar_t wifiSymbol;
+
+    char *_wifiSymbol;
+};
+
+struct timeofday {
+    wchar_t timeSymbol;
+
+    char *_timeSymbol;
 };
 
 struct plugins {
@@ -54,9 +52,11 @@ struct plugins {
     struct wifi wf;
     struct timeofday td;
 
+    char *symBackground;
+    char *percentBackground;
+
     char pluginsFormatted[160];
     uint8_t pluginsLen;
-    struct pluginConfig plcfg;
 
     int pluginsFd;
     bool shutdownOrLock;

@@ -62,8 +62,8 @@ void runLoop(
 		} else if (task->fds[i].fd == cfg->eventFd) {
 		    if((task->fds[i].revents & POLLIN) == POLLIN){
 			cfg->event(task, cfg);
-			pl->reconfigure(task, pl);
 			lm->reconfigure(task, lm);
+			pl->reconfigure(task, pl);
 		    }
 		} else if(task->fds[i].fd == lm->pipeRead){
 		    if((task->fds[i].revents & POLLIN) == POLLIN){

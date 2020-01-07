@@ -106,9 +106,6 @@ private_ void lemon_setupCommunication(
 private_ void lemon_teardownCommunication(
 	struct taskRunner *,
 	void *);
-private_ void lemon_formatWorkspace(
-	struct taskRunner *,
-	void *);
 private_ void lemon_sendLemonbar(
 	struct taskRunner *,
 	void * );

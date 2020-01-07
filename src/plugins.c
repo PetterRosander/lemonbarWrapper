@@ -33,19 +33,31 @@ struct plugins *plug_init(struct configuration *cfg)
     char *value = NULL;
     hashmap_get(cfg->mcfg.configMap, "WIFI_SYMBOL",
 	    (void**)(&value));
-    pl->plcfg._wifiSymbol = value;
+    pl->wf._wifiSymbol = value;
 
     hashmap_get(cfg->mcfg.configMap, "BATTERY_NORMAL",
 	    (void**)(&value));
-    pl->plcfg._batteryNormal = value;
+    pl->bat._batteryNormal = value;
 
     hashmap_get(cfg->mcfg.configMap, "BATTERY_CHARGING",
 	    (void**)(&value));
-    pl->plcfg._batteryCharging = value;
+    pl->bat._batteryCharging = value;
 
     hashmap_get(cfg->mcfg.configMap, "BATTERY_LOW_WARNING",
 	    (void**)(&value));
-    pl->plcfg._warnPercent = value;
+    pl->bat._warnPercent = value;
+    
+    hashmap_get(cfg->mcfg.configMap, "TIME_SYMBOL",
+	    (void**)(&value));
+    pl->td._timeSymbol = value;
+    
+    hashmap_get(cfg->mcfg.configMap, "LEMON_BACKGROUND_SYMBOL",
+	    (void**)(&value));
+    pl->symBackground = value;
+    
+    hashmap_get(cfg->mcfg.configMap, "LEMON_BACKGROUND_PERCENT",
+	    (void**)(&value));
+    pl->percentBackground = value;
 
     pl->setup = plug_setup;
     pl->addFd = plug_addFd;
@@ -152,19 +164,25 @@ private_ void plug_configure(
 	void *_pl_)
 {
     struct plugins *pl = _pl_;
-    pl->plcfg.wifiSymbol = (wchar_t)strtol(pl->plcfg._wifiSymbol, NULL, 16);
-    pl->plcfg.batteryNormal = (wchar_t)strtol(pl->plcfg._batteryNormal, NULL, 16);
-    pl->plcfg.batteryCharging = (wchar_t)strtol(pl->plcfg._batteryCharging, NULL, 16);
+    pl->wf.wifiSymbol = 
+	(wchar_t)strtol(pl->wf._wifiSymbol, NULL, 16);
+    pl->td.timeSymbol = 
+	(wchar_t)strtol(pl->td._timeSymbol, NULL, 16);
+    pl->bat.batteryNormal = 
+	(wchar_t)strtol(pl->bat._batteryNormal, NULL, 16);
+    pl->bat.batteryCharging = 
+	(wchar_t)strtol(pl->bat._batteryCharging, NULL, 16);
 
-    char *value = pl->plcfg._warnPercent;
+    char *value = pl->bat._warnPercent;
     if(value != NULL){
 	value = strtok(value, ",");
 
-	pl->plcfg.warnPercent[0] = strtol(value, NULL, 10);
-	pl->plcfg.notifyWarn[0] = true;
-	for(int i = 1; i < MAX_BATTERY_WARN && NULL != (value = strtok(NULL, ",")); i++){
-	    pl->plcfg.warnPercent[i] = strtol(value, NULL, 10);
-	    pl->plcfg.notifyWarn[i] = true;
+	pl->bat.warnPercent[0] = strtol(value, NULL, 10);
+	pl->bat.notifyWarn[0] = true;
+	for(int i = 1; i < MAX_BATTERY_WARN && 
+			   NULL != (value = strtok(NULL, ",")); i++){
+	    pl->bat.warnPercent[i] = strtol(value, NULL, 10);
+	    pl->bat.notifyWarn[i] = true;
 	}
     }
     task->exitStatus = FINE;
@@ -212,6 +230,7 @@ private_ void plug_startUserPlugins(
 
 #define FBATTERY_CAPACITY "/sys/class/power_supply/BAT0/capacity"
 #define FBATTERY_STATUS   "/sys/class/power_supply/BAT0/status"
+
 private_ void plug_getBattery(
 	struct taskRunner *task,
 	void *_pl_)
@@ -233,44 +252,35 @@ private_ void plug_getBattery(
     pl->pluginsLen = 0;
     memset(pl->pluginsFormatted, 0, sizeof(pl->pluginsFormatted));
 
-    char colorShown[50] = {0};
 
-    if(pl->bat.capacity > 66){
-	strcpy(colorShown, "0F0");
-    } else if(pl->bat.capacity > 33){
-	strcpy(colorShown, "FF0");
-    } else {
-	strcpy(colorShown, "F00");
-    }
-
+    wchar_t batterySym = 0;
 
     if(strcmp("Discharging", tmpStatus) == 0){
-        pl->pluginsLen += sprintf(&pl->pluginsFormatted[pl->pluginsLen], 
-    	    "%%{+u}%%{U#%s}%u%% %lc%%{-u}%%{U-} | ", colorShown , 
-	    pl->bat.capacity, pl->plcfg.batteryNormal);
+	batterySym = pl->bat.batteryNormal;
     } else if (strcmp("Full", tmpStatus) == 0){
-        pl->pluginsLen += sprintf(&pl->pluginsFormatted[pl->pluginsLen], 
-    	    "%%{+u}%%{U#0F0}%u%% %lc%%{-u}%%{U-} | ", 
-	    pl->bat.capacity, pl->plcfg.batteryNormal);
+	batterySym = pl->bat.batteryNormal;
     } else if (strcmp("Charging", tmpStatus) == 0){
-        pl->pluginsLen += sprintf(&pl->pluginsFormatted[pl->pluginsLen], 
-    	    "%%{+u}%%{U#0F0}%u%% %lc%%{-u}%%{U-} | ", 
-	    pl->bat.capacity, pl->plcfg.batteryCharging);
+	batterySym = pl->bat.batteryCharging;
     }
 
+    pl->pluginsLen += sprintf(&pl->pluginsFormatted[pl->pluginsLen], 
+    	    "%%{B#%s}%lc %%{B-}%%{B#%s} %u%% %%{B-} ", 
+	    pl->symBackground, batterySym, 
+	    pl->percentBackground, pl->bat.capacity);
+
     for(int i = 0; i < MAX_BATTERY_WARN; i++){
-	if(pl->bat.capacity <= pl->plcfg.warnPercent[i] && 
-		pl->plcfg.notifyWarn[i]){
+	if(pl->bat.capacity <= pl->bat.warnPercent[i] && 
+		pl->bat.notifyWarn[i]){
 	    
 	    int i = system("notify-send Battery \"low battery\"");
 	    if(i < 0){
 		lemonLog(ERROR, "sending notificatication faild %s", 
 			strerror(errno));
 	    }
-	    pl->plcfg.notifyWarn[i] = false;
+	    pl->bat.notifyWarn[i] = false;
 
-	} else if(pl->bat.capacity > pl->plcfg.warnPercent[i]) {
-	    pl->plcfg.notifyWarn[i] = true;
+	} else if(pl->bat.capacity > pl->bat.warnPercent[i]) {
+	    pl->bat.notifyWarn[i] = true;
 	}
     }
 
@@ -290,24 +300,18 @@ private_ void plug_getWifi(
     ptr = fgets(ignore, sizeof(ignore), fWifi);
     (void)ptr;
 
-    int i = fscanf(fWifi, "%s %s %hhu %s", ignore, ignore, &pl->wf.link, ignore);
+    uint8_t link = 0;
+    int i = fscanf(fWifi, "%s %s %hhu %s", ignore, ignore, &link, ignore);
 
     if(i != 4){
-	pl->wf.link = 0;
+	link = 0;
     }
     
 
-
-    if(pl->wf.link > 50){
-        pl->pluginsLen += sprintf(&pl->pluginsFormatted[pl->pluginsLen], 
-    	    "%%{+u}%%{U#0F0}%lc%%{U-}%%{-u} | ", pl->plcfg.wifiSymbol);
-    } else if(pl->wf.link > 20){
-        pl->pluginsLen += sprintf(&pl->pluginsFormatted[pl->pluginsLen], 
-    	    "%%{+u}%%{U#FF0}%lc%%{U-}%%{-u} | ", pl->plcfg.wifiSymbol);
-    } else {
-        pl->pluginsLen += sprintf(&pl->pluginsFormatted[pl->pluginsLen], 
-    	    "%%{+u}%%{U#F00}%lc%%{U-}%%{-u} | ", pl->plcfg.wifiSymbol);
-    }
+    pl->pluginsLen += sprintf(&pl->pluginsFormatted[pl->pluginsLen], 
+    	    "%%{B#%s}%lc %%{B-}%%{B#%s} %u%% %%{B-} ", 
+	    pl->symBackground, pl->wf.wifiSymbol, 
+	    pl->percentBackground, link);
 
     fclose(fWifi);
     task->exitStatus = FINE;
@@ -318,14 +322,18 @@ private_ void plug_getTime(
 	void *_pl_)
 {
     struct plugins *pl = _pl_;
-    pl->td.time = time(NULL);
+    time_t now = time(NULL);
     
     struct tm *tm_info = NULL;
-    tm_info = localtime(&pl->td.time);
+    tm_info = localtime(&now);
 
-    strftime(pl->td.bufTime, 6, "%H:%M", tm_info);
+    char bufTime[6] = {0};
+
+    strftime(bufTime, 6, "%H:%M", tm_info);
     pl->pluginsLen += sprintf(&pl->pluginsFormatted[pl->pluginsLen], 
-	    "%s ", pl->td.bufTime);
+    	    "%%{B#%s}%lc %%{B-}%%{B#%s} %s %%{B-} ", 
+	    pl->symBackground, pl->td.timeSymbol, 
+	    pl->percentBackground, bufTime);
     task->exitStatus = FINE;
 }
 
